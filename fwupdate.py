@@ -164,12 +164,12 @@ class PNORLock(object):
         """
         assert self._lock_file is None
         try:
+            self._lock_file = open(PNORLock.LOCK_FILE_PATH, 'w')
+            fcntl.lockf(self._lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
             PNORLock._check_pflash()
             PNORLock._check_host_state()
-            lock = open(PNORLock.LOCK_FILE_PATH, 'w')
-            fcntl.lockf(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-            self._lock_file = lock
         except Exception as e:
+            self.unlock()
             raise Exception('Unable to lock PNOR flash access: ' + str(e))
 
     def unlock(self):
@@ -177,8 +177,13 @@ class PNORLock(object):
         Unlock access to the PNOR flash.
         """
         if self._lock_file:
-            fcntl.lockf(self._lock_file, fcntl.LOCK_UN)
-            os.remove(PNORLock.LOCK_FILE_PATH)
+            try:
+                fcntl.lockf(self._lock_file, fcntl.LOCK_UN)
+                self._lock_file.close()
+                self._lock_file = None
+                os.remove(PNORLock.LOCK_FILE_PATH)
+            except:
+                pass  # Ignore all errors
 
     @staticmethod
     def _check_pflash():
