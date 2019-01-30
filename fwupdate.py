@@ -285,9 +285,6 @@ class FirmwareUpdate(object):
     # Path to temporary files
     TMP_DIR = '/tmp/fwupdate'
 
-    # Size of BMC RW partition (4 MiB)
-    BMC_RW_SIZE = 4 * 1024 * 1024
-
     @staticmethod
     def reset(interactive):
         """
@@ -310,8 +307,12 @@ class FirmwareUpdate(object):
             if not os.path.isdir(FirmwareUpdate.TMP_DIR):
                 os.mkdir(FirmwareUpdate.TMP_DIR)
         with TaskTracker('Create empty RW image'):
+            # Get size of BMC RW partition
+            with open('/sys/class/mtd/mtd5/size', 'r') as f:
+                rw_size = int(f.read())
+            # Create empty image
             with open('/run/initramfs/image-rwfs', 'w') as f:
-                f.write('\xff' * FirmwareUpdate.BMC_RW_SIZE)
+                f.write('\xff' * rw_size)
         with TaskTracker('Clear white list'):
             open('/run/initramfs/whitelist', 'w').close()
         FirmwareUpdate._execute('Reboot BMC system', '/sbin/reboot')
