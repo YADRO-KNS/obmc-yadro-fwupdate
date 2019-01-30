@@ -71,6 +71,7 @@ class VersionInfo(object):
                     match = rx.search(s)
                     if match:
                         version = match.group(1)
+                        break
         except:
             pass  # Ignore all errors
         return version
