@@ -20,8 +20,9 @@ import argparse
 import fcntl
 import os
 import re
-import sys
+import shutil
 import subprocess
+import sys
 import tarfile
 
 # Terminal colors
@@ -190,8 +191,9 @@ class PNORLock(object):
         """
         Check for running pflash utility.
         """
-        if subprocess.call(['/bin/pidof', 'pflash']) == 0:
-            raise Exception('pflash is running')
+        with open(os.devnull, 'w') as of:
+            if subprocess.call(['/bin/pidof', 'pflash'], stdout=of, stderr=subprocess.STDOUT) == 0:
+                raise Exception('pflash is running')
 
     @staticmethod
     def _check_host_state():
@@ -220,6 +222,9 @@ class Signature(object):
     Digital signature verification.
     """
 
+    # Enable/disable digital signature verification
+    USE_VERIFICATION = True
+
     # Public key file (PEM format)
     # TODO: read data from EEPROM (BMC's VPD)
     PUBLIC_KEY = '/etc/yadro.public.pem'
@@ -231,15 +236,16 @@ class Signature(object):
         :param file: path to the file for verification
         :param sign: path to the signature file (digest)
         """
-        try:
-            if not sign:
-                sign = file + '.digest'
-            subprocess.check_output(['/usr/bin/openssl', 'dgst', '-sha256',
-                                     '-verify', Signature.PUBLIC_KEY,
-                                     '-signature', sign,
-                                     file], stderr=subprocess.STDOUT)
-        except subprocess.CalledProcessError as e:
-            raise Exception('Signature verification error ' + e.output)
+        if Signature.USE_VERIFICATION:
+            try:
+                if not sign:
+                    sign = file + '.digest'
+                subprocess.check_output(['/usr/bin/openssl', 'dgst', '-sha256',
+                                         '-verify', Signature.PUBLIC_KEY,
+                                         '-signature', sign,
+                                         file], stderr=subprocess.STDOUT)
+            except subprocess.CalledProcessError as e:
+                raise Exception('Signature verification error ' + e.output)
 
 
 class TaskTracker(object):
@@ -248,6 +254,10 @@ class TaskTracker(object):
     """
 
     def __init__(self, name):
+        """
+        Constructor.
+        :param name: task name
+        """
         self._done = False
         name += '...'
         sys.stdout.write(name)
@@ -264,11 +274,17 @@ class TaskTracker(object):
             self.success()
 
     def success(self):
+        """
+        Set task state as success.
+        """
         if not self._done:
             print('[{}OK{}]'.format(CLR_SUCCESS, CLR_RESET))
             self._done = True
 
     def fail(self):
+        """
+        Set task state as failed.
+        """
         if not self._done:
             print('[{}FAIL{}]'.format(CLR_ERROR, CLR_RESET))
             self._done = True
@@ -284,6 +300,18 @@ class FirmwareUpdate(object):
 
     # Path to temporary files
     TMP_DIR = '/tmp/fwupdate'
+
+    # Error code used for preinstall script
+    EALREADY = 114
+
+    def __init__(self, interactive, clean_install):
+        """
+        Constructor.
+        :param interactive: flag to use interactive mode (ask for user confirmation)
+        :param clean_install: flag to perform clean installation (reset all settings to manufacturing default)
+        """
+        self._interactive = interactive
+        self._clean_install = clean_install
 
     @staticmethod
     def reset(interactive):
@@ -317,73 +345,79 @@ class FirmwareUpdate(object):
             open('/run/initramfs/whitelist', 'w').close()
         FirmwareUpdate._execute('Reboot BMC system', '/sbin/reboot')
 
-    @staticmethod
-    def update(fw_file, interactive, check_sign, clean_install):
+    def update(self, fw_file):
         """
         Update firmware.
         :param fw_file: firmware package file
-        :param interactive: flag to use interactive mode (ask for user confirmation)
-        :param check_sign: flag to use signature verification
-        :param clean_install: flag to perform clean installation (reset all settings to manufacturing default)
         """
         if not os.path.isfile(fw_file):
             raise Exception('Firmware package file not found: ' + fw_file)
 
-        if interactive:
+        if self._interactive:
             title = 'OpenBMC and OpenPOWER firmwares will be updated.\n'
-            if clean_install:
+            if self._clean_install:
                 title += 'All settings will be restored to manufacture default values.\n'
             title += 'OpenBMC system will be rebooted automatically to apply changes.\n'
             title += 'Please do not turn off the server during update!'
             FirmwareUpdate._confirm(title)
 
         with TaskTracker('Prepare temporary directory'):
-            if not os.path.isdir(FirmwareUpdate.TMP_DIR):
-                os.mkdir(FirmwareUpdate.TMP_DIR)
+            if os.path.isdir(FirmwareUpdate.TMP_DIR):
+                shutil.rmtree(FirmwareUpdate.TMP_DIR)
+            os.mkdir(FirmwareUpdate.TMP_DIR)
 
         with TaskTracker('Unpack firmware package'):
             fw_tar = tarfile.open(fw_file)
             fw_tar.extractall(FirmwareUpdate.TMP_DIR)
             fw_tar.close()
 
-        obmc_image = 'image-bmc'
-        opfw_image = 'vesnin.pnor'
-        obmc_file = FirmwareUpdate.TMP_DIR + '/' + obmc_image
-        opfw_file = FirmwareUpdate.TMP_DIR + '/' + opfw_image
-
-        if check_sign:
-            with TaskTracker('Check signature of ' + obmc_image):
-                Signature.verify(obmc_file)
-            with TaskTracker('Check signature of ' + opfw_image):
-                Signature.verify(opfw_file)
+        # Prepare for update
+        obmc_file = FirmwareUpdate.TMP_DIR + '/image-bmc'
+        with TaskTracker('Check signature of ' + os.path.basename(obmc_file)):
+            Signature.verify(obmc_file)
+        obmc_preinstall, obmc_postinstall = FirmwareUpdate._prepare_customization('obmc.update')
+        opfw_file = FirmwareUpdate.TMP_DIR + '/vesnin.pnor'
+        with TaskTracker('Check signature of ' + os.path.basename(opfw_file)):
+            Signature.verify(opfw_file)
+        opfw_preinstall, opfw_postinstall = FirmwareUpdate._prepare_customization('opfw.update')
 
         with TaskTracker('Lock PNOR access') as lock_task, PNORLock():
             lock_task.success()
-            FirmwareUpdate._update_opfw(opfw_file, clean_install)
-            FirmwareUpdate._update_obmc(obmc_file, clean_install)
 
-    @staticmethod
-    def _update_obmc(fw_file, clean_install):
+            # Update OpenPOWER firmware
+            done = False
+            if opfw_preinstall:
+                done = self._pre_install(opfw_preinstall, 'OpenPOWER', opfw_file)
+            if not done:
+                self._update_opfw(opfw_file)
+            if opfw_postinstall:
+                FirmwareUpdate._post_install(opfw_postinstall, 'OpenPOWER')
+
+            # Update OpenBMC firmware
+            done = False
+            if obmc_preinstall:
+                done = self._pre_install(obmc_preinstall, 'OpenBMC', obmc_file)
+            if not done:
+                self._update_obmc(obmc_file)
+
+    def _update_obmc(self, fw_file):
         """
-        Update OpenBMC firmware.
-        :param fw_file: firmware file
-        :param clean_install: flag to perform clean installation (reset all settings to manufacturing default)
+        Update OpenBMC firmware (write image).
+        :param fw_file: firmware image file
         """
         FirmwareUpdate._execute('Prepare OpenBMC firmware image', 'mv -f {} /run/initramfs'.format(fw_file))
-        if clean_install:
+        if self._clean_install:
             with TaskTracker('Clear white list'):
                 open('/run/initramfs/whitelist', 'w').close()
         FirmwareUpdate._execute('Reboot BMC system', '/sbin/reboot')
 
-    @staticmethod
-    def _update_opfw(fw_file, clean_install):
+    def _update_opfw(self, fw_file):
         """
-        Update OpenPOWER firmware.
-        :param fw_file: firmware file
-        :param clean_install: flag to perform clean installation (reset all settings to manufacturing default)
+        Update OpenPOWER firmware (write image).
+        :param fw_file: firmware image file
         """
         nvram_image = FirmwareUpdate.TMP_DIR + '/nvram.bin'
-        if not clean_install:
+        if not self._clean_install:
             FirmwareUpdate._execute('Preserve NVRAM configuration',
                                     FirmwareUpdate.PFLASH + ' -P NVRAM -r ' + nvram_image)
 
@@ -393,9 +427,67 @@ class FirmwareUpdate(object):
         except subprocess.CalledProcessError as e:
             raise Exception(e.output)
 
-        if not clean_install:
+        if not self._clean_install:
             FirmwareUpdate._execute('Recover NVRAM configuration',
                                     FirmwareUpdate.PFLASH + ' -f -e -P NVRAM -p ' + nvram_image)
+
+    def _pre_install(self, cmd, title, fw_file):
+        """
+        Execute pre-install command.
+        :param cmd: command to execute
+        :param title: command title (firmware type)
+        :param fw_file: firmware image file
+        """
+        print('Execute ' + title + ' pre-install...')
+        rc = subprocess.call([cmd,
+                              fw_file,
+                              'clean' if self._clean_install else 'full',
+                              'interactive' if self._interactive else 'silent'])
+        if rc == 0:
+            return False
+        elif rc == FirmwareUpdate.EALREADY:
+            return True
+        else:
+            raise Exception('Error executing pre-install procedure ({})'.format(rc))
+
+    @staticmethod
+    def _post_install(cmd, title):
+        """
+        Execute post-install command.
+        :param cmd: command to execute
+        :param title: command title (firmware type)
+        """
+        print('Execute ' + title + ' post-install...')
+        subprocess.call([cmd])
+
+    @staticmethod
+    def _prepare_customization(cname):
+        """
+        Prepare update customization procedures.
+        :param cname: customization package name
+        :return: tuple with pre- and post-install executable modules
+        """
+        pre_install = None
+        post_install = None
+        cust_package = FirmwareUpdate.TMP_DIR + '/' + cname
+        if os.path.isfile(cust_package):
+            with TaskTracker('Check signature of ' + cname):
+                Signature.verify(cust_package)
+            cust_path = FirmwareUpdate.TMP_DIR + '/upack_' + cname
+            with TaskTracker('Prepare updater ' + cname):
+                if not os.path.isdir(cust_path):
+                    os.mkdir(cust_path)
+            with TaskTracker('Unpack updater ' + cname):
+                fw_tar = tarfile.open(cust_package)
+                fw_tar.extractall(cust_path)
+                fw_tar.close()
+            pre_install_test = cust_path + '/preinstall'
+            if os.path.isfile(pre_install_test):
+                pre_install = pre_install_test
+            post_install_test = cust_path + '/postinstall'
+            if os.path.isfile(post_install_test):
+                post_install = post_install_test
+        return pre_install, post_install
 
     @staticmethod
     def _confirm(title, prompt='Do you want to continue?'):
@@ -441,10 +533,11 @@ def main():
     args = parser.parse_args()
     try:
         PNORLock.USE_LOCK = not args.no_lock
+        Signature.USE_VERIFICATION = not args.no_sign
         if args.version:
             VersionInfo.show()
         elif args.file:
-            FirmwareUpdate.update(args.file, not args.no_sign, not args.yes, args.reset)
+            FirmwareUpdate(not args.yes, args.reset).update(args.file)
         elif args.reset:
             FirmwareUpdate.reset(not args.yes)
         else:

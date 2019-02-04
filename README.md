@@ -1,6 +1,6 @@
 # YADRO Firmware Update tool
 
-Script fwupdate.py is used for:
+Script fwupdate.py is used to:
 * write OpenBMC and OpenPOWER firmware images to appropriate flash devices;
 * restore manufacture default state (reset options: clear PNOR flash
   partitions and BMC RW image);
@@ -12,6 +12,33 @@ Firmware package MUST contain files:
 * `image-bmc.digest` - digital signature of OpenBMC image
 * `vesnin.pnor` - image of OpenPOWER firmware
 * `vesnin.pnor.digest` - digital signature of OpenPOWER image
+
+## Customization of the update procedure
+The update procedure can be customized in runtime using special scripts
+placed inside the firmware package:
+* `obmc.update` - tar archive for customizing OpenBMC update procedure;
+* `obmc.update.digest` - digital signature of `obmc.update` archive;
+* `opfw.update` - tar archive for customizing OpenPOWER update procedure;
+* `opfw.update.digest` - digital signature of `bpmc.update` archive;
+
+Each archive can contain one or both executable modules (scripts):
+* `preinstall` - used before writing new firmware image;
+* `postinstall` - used after writing new firmware image (OpenPOWER firmware
+  only).
+
+During call to the `preinstall` module next parameters are passed:
+1. Path to the new firmware image file;
+2. Update type (`full` for normal update or `clean` if fwupdate was called
+   with option `--reset`);
+3. Interactive mode (`interactive` or `silent` if fwupdate was called with
+   option `--yes`).
+
+Possible exit codes from `preinstall` script:
+* `0` - successful, the update procedure can continue;
+* `114 (EALREADY)` - successful, the update procedure has been already
+  completed by the script;
+* Any other values - fail, the update procedure must be stopped.
+Exit codes from `postinstall` are ignored.
 
 ## Digital signature
 Digital signature files are created during build process. Signature is a
