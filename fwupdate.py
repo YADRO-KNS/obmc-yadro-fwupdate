@@ -324,25 +324,29 @@ class FirmwareUpdate(object):
                     'OpenBMC system will be rebooted automatically to apply changes.'
             FirmwareUpdate._confirm(title)
 
-        # OpenPOWER firmware reset
-        FirmwareUpdate._execute('Clear NVRAM partition', FirmwareUpdate.PFLASH + ' -f -e -P NVRAM')
-        FirmwareUpdate._execute('Clear GUARD partition', FirmwareUpdate.PFLASH + ' -f -c -P GUARD')
-        FirmwareUpdate._execute('Clear DJVPD partition', FirmwareUpdate.PFLASH + ' -f -c -P DJVPD')
-        FirmwareUpdate._execute('Clear HBEL partition', FirmwareUpdate.PFLASH + ' -f -c -P HBEL')
+        with TaskTracker('Lock PNOR access') as lock_task, PNORLock():
+            lock_task.success()
 
-        # OpenBMC firmware reset
-        with TaskTracker('Prepare temporary directory'):
-            if not os.path.isdir(FirmwareUpdate.TMP_DIR):
-                os.mkdir(FirmwareUpdate.TMP_DIR)
-        with TaskTracker('Create empty RW image'):
-            # Get size of BMC RW partition
-            with open('/sys/class/mtd/mtd5/size', 'r') as f:
-                rw_size = int(f.read())
-            # Create empty image
-            with open('/run/initramfs/image-rwfs', 'w') as f:
-                f.write('\xff' * rw_size)
-        with TaskTracker('Clear white list'):
-            open('/run/initramfs/whitelist', 'w').close()
+            # OpenPOWER firmware reset
+            FirmwareUpdate._execute('Clear NVRAM partition', FirmwareUpdate.PFLASH + ' -f -e -P NVRAM')
+            FirmwareUpdate._execute('Clear GUARD partition', FirmwareUpdate.PFLASH + ' -f -c -P GUARD')
+            FirmwareUpdate._execute('Clear DJVPD partition', FirmwareUpdate.PFLASH + ' -f -c -P DJVPD')
+            FirmwareUpdate._execute('Clear HBEL partition', FirmwareUpdate.PFLASH + ' -f -c -P HBEL')
+
+            # OpenBMC firmware reset
+            with TaskTracker('Prepare temporary directory'):
+                if not os.path.isdir(FirmwareUpdate.TMP_DIR):
+                    os.mkdir(FirmwareUpdate.TMP_DIR)
+            with TaskTracker('Create empty RW image'):
+                # Get size of BMC RW partition
+                with open('/sys/class/mtd/mtd5/size', 'r') as f:
+                    rw_size = int(f.read())
+                # Create empty image
+                with open('/run/initramfs/image-rwfs', 'w') as f:
+                    f.write('\xff' * rw_size)
+            with TaskTracker('Clear white list'):
+                open('/run/initramfs/whitelist', 'w').close()
+
         FirmwareUpdate._execute('Reboot BMC system', '/sbin/reboot')
 
     def update(self, fw_file):
