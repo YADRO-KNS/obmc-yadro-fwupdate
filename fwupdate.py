@@ -128,7 +128,8 @@ class VersionInfo(object):
         try:
             with PNORLock():
                 dump = '/tmp/fwupdate.version.dump'
-                subprocess.check_output([FirmwareUpdate.PFLASH, '-P', 'VERSION', '-r', dump])
+                subprocess.check_output(
+                    [FirmwareUpdate.PFLASH, '-P', 'VERSION', '-r', dump])
                 with open(dump, 'r') as f:
                     raw = f.read()
                 os.remove(dump)
@@ -192,7 +193,8 @@ class PNORLock(object):
         Check for running pflash utility.
         """
         with open(os.devnull, 'w') as of:
-            if subprocess.call(['/bin/pidof', 'pflash'], stdout=of, stderr=subprocess.STDOUT) == 0:
+            if subprocess.call(['/bin/pidof', 'pflash'], stdout=of,
+                               stderr=subprocess.STDOUT) == 0:
                 raise Exception('pflash is running')
 
     @staticmethod
@@ -201,12 +203,13 @@ class PNORLock(object):
         Check for host state.
         """
         try:
-            dbus_out = subprocess.check_output(['/usr/bin/busctl', '--no-pager', 'call',
-                                                'xyz.openbmc_project.State.Host',
-                                                '/xyz/openbmc_project/state/host0',
-                                                'org.freedesktop.DBus.Properties',
-                                                'Get', 'ss', 'xyz.openbmc_project.State.Host',
-                                                'CurrentHostState'], stderr=subprocess.STDOUT)
+            dbus_out = subprocess.check_output([
+                '/usr/bin/busctl', '--no-pager', 'call',
+                'xyz.openbmc_project.State.Host',
+                '/xyz/openbmc_project/state/host0',
+                'org.freedesktop.DBus.Properties',
+                'Get', 'ss', 'xyz.openbmc_project.State.Host',
+                'CurrentHostState'], stderr=subprocess.STDOUT)
         except subprocess.CalledProcessError as e:
             raise Exception(e.output)
         match = re.compile(r'.*Host\.HostState\.([^"]+)').search(dbus_out)
@@ -307,8 +310,10 @@ class FirmwareUpdate(object):
     def __init__(self, interactive, clean_install):
         """
         Constructor.
-        :param interactive: flag to use interactive mode (ask for user confirmation)
-        :param clean_install: flag to perform clean installation (reset all settings to manufacturing default)
+        :param interactive: flag to use interactive mode
+                            (ask for user confirmation)
+        :param clean_install: flag to perform clean installation
+                              (reset all settings to manufacturing default)
         """
         self._interactive = interactive
         self._clean_install = clean_install
@@ -317,21 +322,28 @@ class FirmwareUpdate(object):
     def reset(interactive):
         """
         Reset all settings to manufacturing default.
-        :param interactive: flag to use interactive mode (ask for user confirmation)
+        :param interactive: flag to use interactive mode
+                            (ask for user confirmation)
         """
         if interactive:
-            title = 'All settings will be restored to manufacture default values.\n' + \
-                    'OpenBMC system will be rebooted automatically to apply changes.'
-            FirmwareUpdate._confirm(title)
+            FirmwareUpdate._confirm(
+                'All settings will be restored to manufacture default values.'
+                '\nOpenBMC system will be rebooted automatically to apply '
+                'changes.'
+            )
 
         with TaskTracker('Lock PNOR access') as lock_task, PNORLock():
             lock_task.success()
 
             # OpenPOWER firmware reset
-            FirmwareUpdate._execute('Clear NVRAM partition', FirmwareUpdate.PFLASH + ' -f -e -P NVRAM')
-            FirmwareUpdate._execute('Clear GUARD partition', FirmwareUpdate.PFLASH + ' -f -c -P GUARD')
-            FirmwareUpdate._execute('Clear DJVPD partition', FirmwareUpdate.PFLASH + ' -f -c -P DJVPD')
-            FirmwareUpdate._execute('Clear HBEL partition', FirmwareUpdate.PFLASH + ' -f -c -P HBEL')
+            FirmwareUpdate._execute('Clear NVRAM partition',
+                                    FirmwareUpdate.PFLASH + ' -f -e -P NVRAM')
+            FirmwareUpdate._execute('Clear GUARD partition',
+                                    FirmwareUpdate.PFLASH + ' -f -c -P GUARD')
+            FirmwareUpdate._execute('Clear DJVPD partition',
+                                    FirmwareUpdate.PFLASH + ' -f -c -P DJVPD')
+            FirmwareUpdate._execute('Clear HBEL partition',
+                                    FirmwareUpdate.PFLASH + ' -f -c -P HBEL')
 
             # OpenBMC firmware reset
             with TaskTracker('Prepare temporary directory'):
@@ -360,9 +372,11 @@ class FirmwareUpdate(object):
         if self._interactive:
             title = 'OpenBMC and OpenPOWER firmwares will be updated.\n'
             if self._clean_install:
-                title += 'All settings will be restored to manufacture default values.\n'
-            title += 'OpenBMC system will be rebooted automatically to apply changes.\n'
-            title += 'Please do not turn off the server during update!'
+                title += 'All settings will be restored to manufacture '\
+                         'default values.\n'
+            title += 'OpenBMC system will be rebooted automatically to apply '\
+                     'changes.\nPlease do not turn off the server during '\
+                     'update!'
             FirmwareUpdate._confirm(title)
 
         with TaskTracker('Prepare temporary directory'):
@@ -379,11 +393,13 @@ class FirmwareUpdate(object):
         obmc_file = FirmwareUpdate.TMP_DIR + '/image-bmc'
         with TaskTracker('Check signature of ' + os.path.basename(obmc_file)):
             Signature.verify(obmc_file)
-        obmc_preinstall, obmc_postinstall = FirmwareUpdate._prepare_customization('obmc.update')
+        obmc_preinstall, obmc_postinstall = FirmwareUpdate\
+            ._prepare_customization('obmc.update')
         opfw_file = FirmwareUpdate.TMP_DIR + '/vesnin.pnor'
         with TaskTracker('Check signature of ' + os.path.basename(opfw_file)):
             Signature.verify(opfw_file)
-        opfw_preinstall, opfw_postinstall = FirmwareUpdate._prepare_customization('opfw.update')
+        opfw_preinstall, opfw_postinstall = FirmwareUpdate\
+            ._prepare_customization('opfw.update')
 
         with TaskTracker('Lock PNOR access') as lock_task, PNORLock():
             lock_task.success()
@@ -391,7 +407,8 @@ class FirmwareUpdate(object):
             # Update OpenPOWER firmware
             done = False
             if opfw_preinstall:
-                done = self._pre_install(opfw_preinstall, 'OpenPOWER', opfw_file)
+                done = self._pre_install(
+                    opfw_preinstall, 'OpenPOWER', opfw_file)
             if not done:
                 self._update_opfw(opfw_file)
             if opfw_postinstall:
@@ -409,7 +426,8 @@ class FirmwareUpdate(object):
         Update OpenBMC firmware (write image).
         :param fw_file: firmware image file
         """
-        FirmwareUpdate._execute('Prepare OpenBMC firmware image', 'mv -f {} /run/initramfs'.format(fw_file))
+        FirmwareUpdate._execute('Prepare OpenBMC firmware image',
+                                'mv -f {} /run/initramfs'.format(fw_file))
         if self._clean_install:
             with TaskTracker('Clear white list'):
                 open('/run/initramfs/whitelist', 'w').close()
@@ -422,18 +440,23 @@ class FirmwareUpdate(object):
         """
         nvram_image = FirmwareUpdate.TMP_DIR + '/nvram.bin'
         if not self._clean_install:
-            FirmwareUpdate._execute('Preserve NVRAM configuration',
-                                    FirmwareUpdate.PFLASH + ' -P NVRAM -r ' + nvram_image)
+            FirmwareUpdate._execute(
+                'Preserve NVRAM configuration',
+                FirmwareUpdate.PFLASH + ' -P NVRAM -r ' + nvram_image
+            )
 
         print('Writing OpenPOWER firmware...')
         try:
-            subprocess.call([FirmwareUpdate.PFLASH, '-E', '-f', '-i', '-p', fw_file])
+            subprocess.call([FirmwareUpdate.PFLASH, '-E',
+                             '-f', '-i', '-p', fw_file])
         except subprocess.CalledProcessError as e:
             raise Exception(e.output)
 
         if not self._clean_install:
-            FirmwareUpdate._execute('Recover NVRAM configuration',
-                                    FirmwareUpdate.PFLASH + ' -f -e -P NVRAM -p ' + nvram_image)
+            FirmwareUpdate._execute(
+                'Recover NVRAM configuration',
+                FirmwareUpdate.PFLASH + ' -f -e -P NVRAM -p ' + nvram_image
+            )
 
     def _pre_install(self, cmd, title, fw_file):
         """
@@ -443,16 +466,18 @@ class FirmwareUpdate(object):
         :param fw_file: firmware image file
         """
         print('Execute ' + title + ' pre-install...')
-        rc = subprocess.call([cmd,
-                              fw_file,
-                              'clean' if self._clean_install else 'full',
-                              'interactive' if self._interactive else 'silent'])
+        rc = subprocess.call([
+            cmd, fw_file,
+            'clean' if self._clean_install else 'full',
+            'interactive' if self._interactive else 'silent'
+        ])
         if rc == 0:
             return False
         elif rc == FirmwareUpdate.EALREADY:
             return True
         else:
-            raise Exception('Error executing pre-install procedure ({})'.format(rc))
+            raise Exception(
+                'Error executing pre-install procedure ({})'.format(rc))
 
     @staticmethod
     def _post_install(cmd, title):
@@ -500,9 +525,12 @@ class FirmwareUpdate(object):
         :param title: message title
         :param prompt: prompt message
         """
-        print('{}**************************************{}'.format(CLR_ERROR, CLR_RESET))
-        print('{}*             ATTENTION!             *{}'.format(CLR_ERROR, CLR_RESET))
-        print('{}**************************************{}'.format(CLR_ERROR, CLR_RESET))
+        print('{}**************************************{}\n'
+              '{}*             ATTENTION!             *{}\n'
+              '{}**************************************{}'.format(
+                  CLR_ERROR, CLR_RESET,
+                  CLR_ERROR, CLR_RESET,
+                  CLR_ERROR, CLR_RESET))
         print(title)
         resp = raw_input(prompt + ' [y/N] ')
         if not re.match(r'^(y|yes)$', resp.strip().lower()):
@@ -523,17 +551,25 @@ class FirmwareUpdate(object):
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Update OpenBMC/OpenPOWER firmware.')
-    parser.add_argument('-f', '--file', action='store', help='path to the firmware file')
-    parser.add_argument('-r', '--reset', action='store_true', help='reset all settings to manufacturing default, ' +
-                                                                   'this option can be combined with -f or used as ' +
-                                                                   'standalone command to reset RW partition of ' +
-                                                                   'OpenBMC and clean some partitions of the PNOR ' +
-                                                                   'flash (such as NVRAM, GUARD, HBEL etc).')
-    parser.add_argument('-l', '--no-lock', action='store_true', help='disable PNOR flash access check/lock')
-    parser.add_argument('-s', '--no-sign', action='store_true', help='disable digital signature verification')
-    parser.add_argument('-y', '--yes', action='store_true', help='don\'t ask user for confirmation')
-    parser.add_argument('-v', '--version', action='store_true', help='print installed firmware version info and exit')
+    parser = argparse.ArgumentParser(
+        description='Update OpenBMC/OpenPOWER firmware.')
+    parser.add_argument('-f', '--file', action='store',
+                        help='path to the firmware file')
+    parser.add_argument('-r', '--reset', action='store_true', help=(
+        'reset all settings to manufacturing default, '
+        'this option can be combined with -f or used as '
+        'standalone command to reset RW partition of '
+        'OpenBMC and clean some partitions of the PNOR '
+        'flash (such as NVRAM, GUARD, HBEL etc).'
+    ))
+    parser.add_argument('-l', '--no-lock', action='store_true',
+                        help='disable PNOR flash access check/lock')
+    parser.add_argument('-s', '--no-sign', action='store_true',
+                        help='disable digital signature verification')
+    parser.add_argument('-y', '--yes', action='store_true',
+                        help='don\'t ask user for confirmation')
+    parser.add_argument('-v', '--version', action='store_true',
+                        help='print installed firmware version info and exit')
     args = parser.parse_args()
     try:
         PNORLock.USE_LOCK = not args.no_lock
@@ -545,13 +581,15 @@ def main():
         elif args.reset:
             FirmwareUpdate.reset(not args.yes)
         else:
-            raise Exception('One or both of --file/--reset options must be specified')
+            raise Exception(
+                'One or both of --file/--reset options must be specified')
         return 0
     except Exception as e:
         sys.stderr.write('{}{}{}\n'.format(CLR_ERROR, str(e), CLR_RESET))
         return -1
     except KeyboardInterrupt:
-        sys.stderr.write('\n{}Interrupted by user{}\n'.format(CLR_ERROR, CLR_RESET))
+        sys.stderr.write(
+            '\n{}Interrupted by user{}\n'.format(CLR_ERROR, CLR_RESET))
         return -1
 
 
