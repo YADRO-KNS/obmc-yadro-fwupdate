@@ -73,7 +73,7 @@ class VersionInfo(object):
                     if match:
                         version = match.group(1)
                         break
-        except:
+        except Exception:
             pass  # Ignore all errors
         return version
 
@@ -103,7 +103,7 @@ class VersionInfo(object):
                 with open(VersionInfo.OPFW_CACHE_FILE, 'r') as f:
                     version = f.readlines()
                 return version
-            except:
+            except Exception:
                 pass  # Ignore all errors
 
     @staticmethod
@@ -116,7 +116,7 @@ class VersionInfo(object):
             with open(VersionInfo.OPFW_CACHE_FILE, 'w') as f:
                 for v in version:
                     f.write(v.strip() + '\n')
-        except:
+        except Exception:
             pass  # Ignore all errors
 
     @staticmethod
@@ -134,7 +134,7 @@ class VersionInfo(object):
                     raw = f.read()
                 os.remove(dump)
                 return filter(None, [i.strip() for i in raw.split('\n')])
-        except:
+        except Exception:
             pass  # Ignore all errors
 
 
@@ -184,7 +184,7 @@ class PNORLock(object):
                 self._lock_file.close()
                 self._lock_file = None
                 os.remove(PNORLock.LOCK_FILE_PATH)
-            except:
+            except Exception:
                 pass  # Ignore all errors
 
     @staticmethod
@@ -532,7 +532,7 @@ class FirmwareUpdate(object):
                   CLR_ERROR, CLR_RESET,
                   CLR_ERROR, CLR_RESET))
         print(title)
-        resp = raw_input(prompt + ' [y/N] ')
+        resp = raw_input(prompt + ' [y/N] ')  # noqa
         if not re.match(r'^(y|yes)$', resp.strip().lower()):
             raise Exception('Aborted by user')
 
