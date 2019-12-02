@@ -24,6 +24,7 @@ import shutil
 import subprocess
 import sys
 import tarfile
+import dbus
 
 # Terminal colors
 if sys.stdout.isatty():
@@ -36,106 +37,109 @@ else:
     CLR_RESET = ''
 
 
-class VersionInfo(object):
+class DbusClient(object):
+    """
+    D-bus client definitions.
+    """
+
+    MAPPER_BUS = 'xyz.openbmc_project.ObjectMapper'
+    MAPPER_PATH = '/xyz/openbmc_project/object_mapper'
+    MAPPER_IFACE = 'xyz.openbmc_project.ObjectMapper'
+
+    def __init__(self, bus=None):
+        if not bus:
+            bus = dbus.SystemBus()
+
+        self._bus = bus
+
+    def get_property(self, bus, path, iface, name):
+        """
+        Get D-bus property value
+        :param bus: Bus name
+        :param path: Object path
+        :param iface: Property interface
+        :param name: Property name
+        :return: Property value
+        """
+        assert(self._bus)
+        return self._bus.call_blocking(bus, path, dbus.PROPERTIES_IFACE,
+                                       'Get', 'ss', [iface, name])
+
+    def get_object(self, path, interfaces=None):
+        """
+        Obtain a dictionary of service -> implemented interface(s) for the
+        given path.
+        :param path: The object path for wich the result should be fetched.
+        :param interfaces: An array of result set constraining interfaces.
+        :return: A dictionary of services -> implemented interface(s).
+        """
+        if not interfaces:
+            interfaces = []
+
+        assert(self._bus)
+        return self._bus.call_blocking(
+            self.MAPPER_BUS, self.MAPPER_PATH, self.MAPPER_IFACE,
+            'GetObject', 'sas', [path, interfaces])
+
+    def get_subtree(self, path, interfaces=None):
+        """
+        Obtain a dictionary of path -> services where path is in subtree and
+        services is of the type returned by the get_object method.
+        :param path: The subtree path for wich the result should be fetched.
+        :param interfaces: An array of result set constraining interfaces.
+        :return: A dictionary of path -> services.
+        """
+        if not interfaces:
+            interfaces = []
+
+        assert(self._bus)
+        return self._bus.call_blocking(
+            self.MAPPER_BUS, self.MAPPER_PATH, self.MAPPER_IFACE,
+            'GetSubTree', 'sias', [path, 0, interfaces])
+
+
+class VersionInfo(DbusClient):
     """
     Firmware version.
     """
 
-    # File used to store OpenPOWER firmware version information (cache file)
-    OPFW_CACHE_FILE = '/var/lib/obmc/opfw.version'
+    VERSION_IFACE = 'xyz.openbmc_project.Software.Version'
+    ACTIVATION_IFACE = 'xyz.openbmc_project.Software.Activation'
+    EXT_VER_IFACE = 'xyz.openbmc_project.Software.ExtendedVersion'
+    SOFTWARE_PATH = '/xyz/openbmc_project/software'
 
-    @staticmethod
-    def show():
+    def __init__(self, bus=None):
+        DbusClient.__init__(self, bus)
+
+    def show(self):
         """
         Print installed firmware version info.
         """
-        # Get and print OpenBMC firmware version
-        print('OpenBMC firmware: ' + VersionInfo.obmc())
-        # Get and print OpenPOWER firmware version
-        version = VersionInfo.opfw()
-        title = 'OpenPOWER firmware: '
-        print(title + version[0].strip())
-        for v in version[1:]:
-            print(' ' * len(title) + v.strip())
+        objs = self.get_subtree(self.SOFTWARE_PATH, [self.ACTIVATION_IFACE])
+        for path, bus_entry in objs.items():
+            for bname in bus_entry:
+                activation = self.get_property(bname, path,
+                                               self.ACTIVATION_IFACE,
+                                               'Activation')
+                if activation != self.ACTIVATION_IFACE + '.Activations.Active':
+                    continue
 
-    @staticmethod
-    def obmc():
-        """
-        Get OpenBMC firmware version.
-        :return: OpenBMC firmware version
-        """
-        version = 'N/A'
-        try:
-            rx = re.compile(r'VERSION_ID="([^"]+)"')
-            with open('/etc/os-release', 'r') as f:
-                for s in f.readlines():
-                    match = rx.search(s)
-                    if match:
-                        version = match.group(1)
-                        break
-        except Exception:
-            pass  # Ignore all errors
-        return version
+                version = self.get_property(bname, path,
+                                            self.VERSION_IFACE,
+                                            'Version')
+                purpose = self.get_property(bname, path,
+                                            self.VERSION_IFACE,
+                                            'Purpose').split('.')[-1]
+                print('{}: {}'.format(purpose, version))
 
-    @staticmethod
-    def opfw():
-        """
-        Get OpenPOWER firmware version.
-        :return: array with OpenPOWER firmware components versions
-        """
-        version = VersionInfo._read_from_file()
-        if not version:
-            version = VersionInfo._read_from_pnor()
-            if version:
-                VersionInfo._save_to_file(version)
-            else:
-                version = ['N/A']
-        return version
-
-    @staticmethod
-    def _read_from_file():
-        """
-        Read OpenPOWER firmware version info from cache file.
-        :return: array with OpenPOWER firmware components versions
-        """
-        if os.path.isfile(VersionInfo.OPFW_CACHE_FILE):
-            try:
-                with open(VersionInfo.OPFW_CACHE_FILE, 'r') as f:
-                    version = f.readlines()
-                return version
-            except Exception:
-                pass  # Ignore all errors
-
-    @staticmethod
-    def _save_to_file(version):
-        """
-        Save OpenPOWER firmware version info to the cache file.
-        :param version: array with OpenPOWER firmware components versions
-        """
-        try:
-            with open(VersionInfo.OPFW_CACHE_FILE, 'w') as f:
-                for v in version:
-                    f.write(v.strip() + '\n')
-        except Exception:
-            pass  # Ignore all errors
-
-    @staticmethod
-    def _read_from_pnor():
-        """
-        Read OpenPOWER firmware version info from PNOR flash partition.
-        :return: array with OpenPOWER firmware components versions
-        """
-        try:
-            with PNORLock():
-                dump = '/tmp/fwupdate.version.dump'
-                subprocess.check_output(
-                    [FirmwareUpdate.PFLASH, '-P', 'VERSION', '-r', dump])
-                with open(dump, 'r') as f:
-                    raw = f.read()
-                os.remove(dump)
-                return filter(None, [i.strip() for i in raw.split('\n')])
-        except Exception:
-            pass  # Ignore all errors
+                try:
+                    ext_ver = self.get_property(bname, path,
+                                                self.EXT_VER_IFACE,
+                                                'ExtendedVersion')
+                    for item in ext_ver.split(','):
+                        print('{}  {}'.format(' ' * len(purpose), item))
+                except dbus.exceptions.DBusException:
+                    pass
 
 
 class PNORLock(object):
@@ -575,7 +579,7 @@ def main():
         PNORLock.USE_LOCK = not args.no_lock
         Signature.USE_VERIFICATION = not args.no_sign
         if args.version:
-            VersionInfo.show()
+            VersionInfo().show()
         elif args.file:
             FirmwareUpdate(not args.yes, args.reset).update(args.file)
         elif args.reset:
