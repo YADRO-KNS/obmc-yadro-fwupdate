@@ -142,7 +142,7 @@ class VersionInfo(DbusClient):
                     pass
 
 
-class PNORLock(object):
+class PNORLock(DbusClient):
     """
     PNOR flash access lock.
     """
@@ -153,7 +153,11 @@ class PNORLock(object):
     # Lock file path
     LOCK_FILE_PATH = '/var/lock/fwupdate.lock'
 
-    def __init__(self):
+    CHASSIS_PATH = '/xyz/openbmc_project/state/chassis0'
+    CHASSIS_IFACE = 'xyz.openbmc_project.State.Chassis'
+
+    def __init__(self, bus=None):
+        DbusClient.__init__(self, bus)
         self._lock_file = None
 
     def __enter__(self):
@@ -170,10 +174,10 @@ class PNORLock(object):
         """
         assert self._lock_file is None
         try:
-            self._lock_file = open(PNORLock.LOCK_FILE_PATH, 'w')
+            self._lock_file = open(self.LOCK_FILE_PATH, 'w')
             fcntl.lockf(self._lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
-            PNORLock._check_pflash()
-            PNORLock._check_host_state()
+            self._check_pflash()
+            self._check_chassis_state()
         except Exception as e:
             self.unlock()
             raise Exception('Unable to lock PNOR flash access: ' + str(e))
@@ -187,7 +191,7 @@ class PNORLock(object):
                 fcntl.lockf(self._lock_file, fcntl.LOCK_UN)
                 self._lock_file.close()
                 self._lock_file = None
-                os.remove(PNORLock.LOCK_FILE_PATH)
+                os.remove(self.LOCK_FILE_PATH)
             except Exception:
                 pass  # Ignore all errors
 
@@ -196,32 +200,26 @@ class PNORLock(object):
         """
         Check for running pflash utility.
         """
-        with open(os.devnull, 'w') as of:
-            if subprocess.call(['/bin/pidof', 'pflash'], stdout=of,
+        with open(os.devnull, 'w') as DEVNULL:
+            if subprocess.call(['/bin/pidof', 'pflash'], stdout=DEVNULL,
                                stderr=subprocess.STDOUT) == 0:
                 raise Exception('pflash is running')
 
-    @staticmethod
-    def _check_host_state():
+    def _check_chassis_state(self):
         """
-        Check for host state.
+        Check for chassis state.
         """
         try:
-            dbus_out = subprocess.check_output([
-                '/usr/bin/busctl', '--no-pager', 'call',
-                'xyz.openbmc_project.State.Host',
-                '/xyz/openbmc_project/state/host0',
-                'org.freedesktop.DBus.Properties',
-                'Get', 'ss', 'xyz.openbmc_project.State.Host',
-                'CurrentHostState'], stderr=subprocess.STDOUT)
-        except subprocess.CalledProcessError as e:
-            raise Exception(e.output)
-        match = re.compile(r'.*Host\.HostState\.([^"]+)').search(dbus_out)
-        if not match:
-            raise Exception('Host state is undefined')
-        state = match.group(1)
+            chassis = self.get_object(self.CHASSIS_PATH,
+                                      [self.CHASSIS_IFACE]).keys()[0]
+            state = self.get_property(chassis, self.CHASSIS_PATH,
+                                      self.CHASSIS_IFACE,
+                                      'CurrentPowerState').split('.')[-1]
+        except dbus.exceptions.DBusException:
+            raise Exception('Unable to determine the chassis state!')
+
         if state != 'Off':
-            raise Exception('Host is not OFF (' + state + ')')
+            raise Exception('Chassis state is not OFF ({})!'.format(state))
 
 
 class Signature(object):
