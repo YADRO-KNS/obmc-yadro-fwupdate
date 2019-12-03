@@ -46,6 +46,10 @@ class DbusClient(object):
     MAPPER_PATH = '/xyz/openbmc_project/object_mapper'
     MAPPER_IFACE = 'xyz.openbmc_project.ObjectMapper'
 
+    SYSTEMD_BUS = 'org.freedesktop.systemd1'
+    SYSTEMD_PATH = '/org/freedesktop/systemd1'
+    SYSTEMD_IFACE = 'org.freedesktop.systemd1.Manager'
+
     def __init__(self, bus=None):
         if not bus:
             bus = dbus.SystemBus()
@@ -97,6 +101,15 @@ class DbusClient(object):
             self.MAPPER_BUS, self.MAPPER_PATH, self.MAPPER_IFACE,
             'GetSubTree', 'sias', [path, 0, interfaces])
 
+    def start_unit(self, unit_name):
+        """
+        Start systemd unit
+        :params unit_name: Systemd unit name
+        """
+        self._bus.call_blocking(self.SYSTEMD_BUS, self.SYSTEMD_PATH,
+                                self.SYSTEMD_IFACE, 'StartUnit', 'ss',
+                                [unit_name, 'replace'])
+
 
 class VersionInfo(DbusClient):
     """
@@ -142,13 +155,13 @@ class VersionInfo(DbusClient):
                     pass
 
 
-class PNORLock(DbusClient):
+class FirmwareLock(DbusClient):
     """
-    PNOR flash access lock.
+    Firmware flash access lock.
     """
 
     # Enable/disable locking
-    USE_LOCK = True
+    USE_PNOR_LOCK = True
 
     # Lock file path
     LOCK_FILE_PATH = '/var/lock/fwupdate.lock'
@@ -156,13 +169,21 @@ class PNORLock(DbusClient):
     CHASSIS_PATH = '/xyz/openbmc_project/state/chassis0'
     CHASSIS_IFACE = 'xyz.openbmc_project.State.Chassis'
 
+    HIOMAPD_PATH = '/xyz/openbmc_project/Hiomapd'
+    HIOMAPD_IFACE = 'xyz.openbmc_project.Hiomapd.Control'
+
     def __init__(self, bus=None):
         DbusClient.__init__(self, bus)
         self._lock_file = None
+        self._hiomapd = dbus.Interface(
+            self._bus.get_object(
+                self.get_object(self.HIOMAPD_PATH,
+                                [self.HIOMAPD_IFACE]).keys()[0],
+                self.HIOMAPD_PATH),
+            self.HIOMAPD_IFACE)
 
     def __enter__(self):
-        if PNORLock.USE_LOCK:
-            self.lock()
+        self.lock()
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
@@ -170,19 +191,75 @@ class PNORLock(DbusClient):
 
     def lock(self):
         """
+        Enable firmware drives guard
+        """
+        try:
+            self._hiomapd_suspend()
+            self._pnor_lock()
+            self._check_chassis_state()
+        except Exception as err:
+            self.unlock()
+            raise Exception('Lock firmware flash access failed: ' + str(err))
+
+    def unlock(self):
+        """
+        Disable firmware drives guard
+        """
+        self._pnor_unlock()
+        self._hiomapd_resume()
+        self._reboot_unlock()
+
+    def _reboot_lock(self):
+        """
+        Prevents the BMC reboot.
+        """
+        self.start_unit('reboot-guard-enable.service')
+
+    def _reboot_unlock(self):
+        """
+        Resumes the BMC reboot possibility.
+        """
+        try:
+            self.start_unit('reboot-guard-disable.service')
+        except Exception:
+            pass
+
+    def _hiomapd_state(self):
+        """
+        Returns current state of the hiomapd.
+        """
+        return self.get_property(self._hiomapd.bus_name,
+                                 self._hiomapd.object_path,
+                                 self.HIOMAPD_IFACE, 'DaemonState')
+
+    def _hiomapd_suspend(self):
+        """
+        Suspends hiomapd work
+        """
+        assert(self._hiomapd_state() == 0)
+        self._hiomapd.Suspend()
+
+    def _hiomapd_resume(self):
+        """
+        Resumes the hiomapd work
+        """
+        try:
+            if self._hiomapd_state() != 0:
+                self._hiomapd.Resume(True)
+        except dbus.exceptions.DBusException:
+            pass
+
+    def _pnor_lock(self):
+        """
         Check and lock access to the PNOR flash.
         """
-        assert self._lock_file is None
-        try:
+        assert(self._lock_file is None)
+        if self.USE_PNOR_LOCK:
             self._lock_file = open(self.LOCK_FILE_PATH, 'w')
             fcntl.lockf(self._lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
             self._check_pflash()
-            self._check_chassis_state()
-        except Exception as e:
-            self.unlock()
-            raise Exception('Unable to lock PNOR flash access: ' + str(e))
 
-    def unlock(self):
+    def _pnor_unlock(self):
         """
         Unlock access to the PNOR flash.
         """
@@ -334,7 +411,7 @@ class FirmwareUpdate(object):
                 'changes.'
             )
 
-        with TaskTracker('Lock PNOR access') as lock_task, PNORLock():
+        with TaskTracker('Lock PNOR access') as lock_task, FirmwareLock():
             lock_task.success()
 
             # OpenPOWER firmware reset
@@ -403,7 +480,7 @@ class FirmwareUpdate(object):
         opfw_preinstall, opfw_postinstall = FirmwareUpdate\
             ._prepare_customization('opfw.update')
 
-        with TaskTracker('Lock PNOR access') as lock_task, PNORLock():
+        with TaskTracker('Lock PNOR access') as lock_task, FirmwareLock():
             lock_task.success()
 
             # Update OpenPOWER firmware
@@ -574,7 +651,7 @@ def main():
                         help='print installed firmware version info and exit')
     args = parser.parse_args()
     try:
-        PNORLock.USE_LOCK = not args.no_lock
+        FirmwareLock.USE_PNOR_LOCK = not args.no_lock
         Signature.USE_VERIFICATION = not args.no_sign
         if args.version:
             VersionInfo().show()
