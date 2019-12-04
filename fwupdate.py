@@ -307,27 +307,95 @@ class Signature(object):
     # Enable/disable digital signature verification
     USE_VERIFICATION = True
 
-    # Public key file (PEM format)
-    # TODO: read data from EEPROM (BMC's VPD)
-    PUBLIC_KEY = '/etc/yadro.public.pem'
+    SYSTEM_KEYS_DIRECTORY = '/etc/activationdata'
+
+    def __init__(self):
+        self._folder = None
+        self._keyfile = None
+        self._hashfunc = None
 
     @staticmethod
-    def verify(file, sign=None):
+    def _get_value(filename, tag):
         """
-        Check signature of specified firmware file.
-        :param file: path to the file for verification
-        :param sign: path to the signature file (digest)
+        Read the specified tag value from the file.
         """
-        if Signature.USE_VERIFICATION:
+        with open(filename, 'r') as stream:
+            for line in stream.readlines():
+                key, val = line.split('=')
+                if key == tag:
+                    return val.strip()
+            raise Exception('{} not found in {}!'.format(tag, filename))
+
+    @staticmethod
+    def _make_filename(*args):
+        """
+        Build a path to the file using os.path.join()
+        and ensure that the file exists.
+        """
+        filename = os.path.join(*args)
+        if not os.path.isfile(filename):
+            raise Exception('File {} not found!'.format(filename))
+        return filename
+
+    @staticmethod
+    def _verify_file(filename, keyname, hashfunc):
+        """
+        Verify signature of specified file.
+        :param filename: path to the file for verification
+        :param keyname: path to the public key
+        :param hashfunc: signature hash function
+        """
+        try:
+            subprocess.check_output(['/usr/bin/openssl', 'dgst',
+                                     '-' + hashfunc,
+                                     '-verify', keyname,
+                                     '-signature', filename + '.sig',
+                                     filename], stderr=subprocess.STDOUT)
+        except subprocess.CalledProcessError as err:
+            raise Exception('Verification of {} failed: {}'.format(filename,
+                                                                   err.output))
+
+    def system_level_verify(self, folder):
+        """
+        Function used for system level file signature validation of image
+        specific publickey file and manifest file using the available public
+        keys and hash functions in the system.
+        :param manifest: path to the manifest file.
+        :param publickey: path to the image specific public key file.
+        """
+        manifest = self._make_filename(folder, 'MANIFEST')
+        publickey = self._make_filename(folder, 'publickey')
+        valid = False
+
+        for keytype in os.listdir(Signature.SYSTEM_KEYS_DIRECTORY):
             try:
-                if not sign:
-                    sign = file + '.digest'
-                subprocess.check_output(['/usr/bin/openssl', 'dgst', '-sha256',
-                                         '-verify', Signature.PUBLIC_KEY,
-                                         '-signature', sign,
-                                         file], stderr=subprocess.STDOUT)
-            except subprocess.CalledProcessError as e:
-                raise Exception('Signature verification error ' + e.output)
+                keyfile = Signature._make_filename(
+                    Signature.SYSTEM_KEYS_DIRECTORY, keytype, 'publickey')
+                hashfn = Signature._make_filename(
+                    Signature.SYSTEM_KEYS_DIRECTORY, keytype, 'hashfunc')
+                hashfunc = Signature._get_value(hashfn, 'HashType')
+
+                Signature._verify_file(manifest, keyfile, hashfunc)
+                Signature._verify_file(publickey, keyfile, hashfunc)
+                valid = True
+                break
+            except Exception:
+                pass
+
+        if valid:
+            self._folder = folder
+            self._keyfile = publickey
+            self._hashfunc = self._get_value(manifest, 'HashType')
+        else:
+            raise Exception('System level verification failed!')
+
+    def verify(self, filename):
+        assert(self._folder)
+        assert(self._keyfile)
+        assert(self._hashfunc)
+
+        self._verify_file(self._make_filename(filename), self._keyfile,
+                          self._hashfunc)
 
 
 class TaskTracker(object):
@@ -396,6 +464,7 @@ class FirmwareUpdate(object):
         """
         self._interactive = interactive
         self._clean_install = clean_install
+        self._validator = Signature()
 
     @staticmethod
     def reset(interactive):
@@ -456,28 +525,31 @@ class FirmwareUpdate(object):
             title += 'OpenBMC system will be rebooted automatically to apply '\
                      'changes.\nPlease do not turn off the server during '\
                      'update!'
-            FirmwareUpdate._confirm(title)
+            self._confirm(title)
 
         with TaskTracker('Prepare temporary directory'):
-            if os.path.isdir(FirmwareUpdate.TMP_DIR):
-                shutil.rmtree(FirmwareUpdate.TMP_DIR)
-            os.mkdir(FirmwareUpdate.TMP_DIR)
+            if os.path.isdir(self.TMP_DIR):
+                shutil.rmtree(self.TMP_DIR)
+            os.mkdir(self.TMP_DIR)
 
         with TaskTracker('Unpack firmware package'):
             fw_tar = tarfile.open(fw_file)
-            fw_tar.extractall(FirmwareUpdate.TMP_DIR)
+            fw_tar.extractall(self.TMP_DIR)
             fw_tar.close()
 
+        if self._validator.USE_VERIFICATION:
+            with TaskTracker('Check signature of firmware package'):
+                self._validator.system_level_verify(self.TMP_DIR)
+
         # Prepare for update
-        obmc_file = FirmwareUpdate.TMP_DIR + '/image-bmc'
-        with TaskTracker('Check signature of ' + os.path.basename(obmc_file)):
-            Signature.verify(obmc_file)
-        obmc_preinstall, obmc_postinstall = FirmwareUpdate\
+        obmc_file = os.path.join(self.TMP_DIR, 'image-bmc')
+        self._verify(obmc_file)
+        obmc_preinstall, obmc_postinstall = self\
             ._prepare_customization('obmc.update')
-        opfw_file = FirmwareUpdate.TMP_DIR + '/vesnin.pnor'
-        with TaskTracker('Check signature of ' + os.path.basename(opfw_file)):
-            Signature.verify(opfw_file)
-        opfw_preinstall, opfw_postinstall = FirmwareUpdate\
+
+        opfw_file = os.path.join(self.TMP_DIR, 'vesnin.pnor')
+        self._verify(opfw_file)
+        opfw_preinstall, opfw_postinstall = self\
             ._prepare_customization('opfw.update')
 
         with TaskTracker('Lock PNOR access') as lock_task, FirmwareLock():
@@ -491,7 +563,7 @@ class FirmwareUpdate(object):
             if not done:
                 self._update_opfw(opfw_file)
             if opfw_postinstall:
-                FirmwareUpdate._post_install(opfw_postinstall, 'OpenPOWER')
+                self._post_install(opfw_postinstall, 'OpenPOWER')
 
             # Update OpenBMC firmware
             done = False
@@ -500,42 +572,42 @@ class FirmwareUpdate(object):
             if not done:
                 self._update_obmc(obmc_file)
 
+    def _verify(self, fname):
+        if self._validator.USE_VERIFICATION:
+            with TaskTracker('Check signature of ' + os.path.basename(fname)):
+                self._validator.verify(fname)
+
     def _update_obmc(self, fw_file):
         """
         Update OpenBMC firmware (write image).
         :param fw_file: firmware image file
         """
-        FirmwareUpdate._execute('Prepare OpenBMC firmware image',
-                                'mv -f {} /run/initramfs'.format(fw_file))
+        self._execute('Prepare OpenBMC firmware image',
+                      'mv -f {} /run/initramfs'.format(fw_file))
         if self._clean_install:
             with TaskTracker('Clear white list'):
                 open('/run/initramfs/whitelist', 'w').close()
-        FirmwareUpdate._execute('Reboot BMC system', '/sbin/reboot')
+        self._execute('Reboot BMC system', '/sbin/reboot')
 
     def _update_opfw(self, fw_file):
         """
         Update OpenPOWER firmware (write image).
         :param fw_file: firmware image file
         """
-        nvram_image = FirmwareUpdate.TMP_DIR + '/nvram.bin'
+        nvram_image = os.path.join(self.TMP_DIR, 'nvram.bin')
         if not self._clean_install:
-            FirmwareUpdate._execute(
-                'Preserve NVRAM configuration',
-                FirmwareUpdate.PFLASH + ' -P NVRAM -r ' + nvram_image
-            )
+            self._execute('Preserve NVRAM configuration',
+                          self.PFLASH + ' -P NVRAM -r ' + nvram_image)
 
         print('Writing OpenPOWER firmware...')
         try:
-            subprocess.call([FirmwareUpdate.PFLASH, '-E',
-                             '-f', '-i', '-p', fw_file])
+            subprocess.call([self.PFLASH, '-E', '-f', '-i', '-p', fw_file])
         except subprocess.CalledProcessError as e:
             raise Exception(e.output)
 
         if not self._clean_install:
-            FirmwareUpdate._execute(
-                'Recover NVRAM configuration',
-                FirmwareUpdate.PFLASH + ' -f -e -P NVRAM -p ' + nvram_image
-            )
+            self._execute('Recover NVRAM configuration',
+                          self.PFLASH + ' -f -e -P NVRAM -p ' + nvram_image)
 
     def _pre_install(self, cmd, title, fw_file):
         """
@@ -552,7 +624,7 @@ class FirmwareUpdate(object):
         ])
         if rc == 0:
             return False
-        elif rc == FirmwareUpdate.EALREADY:
+        elif rc == self.EALREADY:
             return True
         else:
             raise Exception(
@@ -568,8 +640,7 @@ class FirmwareUpdate(object):
         print('Execute ' + title + ' post-install...')
         subprocess.call([cmd])
 
-    @staticmethod
-    def _prepare_customization(cname):
+    def _prepare_customization(self, cname):
         """
         Prepare update customization procedures.
         :param cname: customization package name
@@ -577,11 +648,10 @@ class FirmwareUpdate(object):
         """
         pre_install = None
         post_install = None
-        cust_package = FirmwareUpdate.TMP_DIR + '/' + cname
+        cust_package = os.path.join(self.TMP_DIR, cname)
         if os.path.isfile(cust_package):
-            with TaskTracker('Check signature of ' + cname):
-                Signature.verify(cust_package)
-            cust_path = FirmwareUpdate.TMP_DIR + '/upack_' + cname
+            self._verify(cust_package)
+            cust_path = os.path.join(self.TMP_DIR, 'upack_' + cname)
             with TaskTracker('Prepare updater ' + cname):
                 if not os.path.isdir(cust_path):
                     os.mkdir(cust_path)
@@ -589,10 +659,10 @@ class FirmwareUpdate(object):
                 fw_tar = tarfile.open(cust_package)
                 fw_tar.extractall(cust_path)
                 fw_tar.close()
-            pre_install_test = cust_path + '/preinstall'
+            pre_install_test = os.path.join(cust_path, 'preinstall')
             if os.path.isfile(pre_install_test):
                 pre_install = pre_install_test
-            post_install_test = cust_path + '/postinstall'
+            post_install_test = os.path.join(cust_path, 'postinstall')
             if os.path.isfile(post_install_test):
                 post_install = post_install_test
         return pre_install, post_install
