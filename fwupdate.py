@@ -454,7 +454,7 @@ class FirmwareUpdate(object):
     # Error code used for preinstall script
     EALREADY = 114
 
-    def __init__(self, interactive, clean_install):
+    def __init__(self, interactive, clean_install=False):
         """
         Constructor.
         :param interactive: flag to use interactive mode
@@ -466,48 +466,58 @@ class FirmwareUpdate(object):
         self._clean_install = clean_install
         self._validator = Signature()
 
-    @staticmethod
-    def reset(interactive):
+    def _get_parts_to_clean(self):
+        PARTS = re.compile(r'^ID=\d+\s+(\w+)\s.*\[([^\]]+)\]$')
+        parts = dict()
+        try:
+            output = subprocess.check_output([self.PFLASH, '-i'],
+                                             stderr=subprocess.STDOUT)
+            for ln in output.splitlines():
+                match = PARTS.match(ln)
+                if not match or 'F' not in match.group(2):
+                    continue
+
+                ecc = 'C' in match.group(2) or 'E' in match.group(2)
+                parts.update({match.group(1): '-c' if ecc else '-e'})
+
+        except subprocess.CalledProcessError:
+            raise Exception('Unable to get list of OpenPOWER partitions')
+
+        return parts
+
+    def reset(self):
         """
         Reset all settings to manufacturing default.
         :param interactive: flag to use interactive mode
                             (ask for user confirmation)
         """
-        if interactive:
+
+        if self._interactive:
             FirmwareUpdate._confirm(
                 'All settings will be restored to manufacture default values.'
                 '\nOpenBMC system will be rebooted automatically to apply '
                 'changes.'
             )
 
-        with TaskTracker('Lock PNOR access') as lock_task, FirmwareLock():
+        # Single D-bus connection
+        bus = dbus.SystemBus()
+
+        with TaskTracker('Lock PNOR access') as lock_task, FirmwareLock(bus):
             lock_task.success()
 
             # OpenPOWER firmware reset
-            FirmwareUpdate._execute('Clear NVRAM partition',
-                                    FirmwareUpdate.PFLASH + ' -f -e -P NVRAM')
-            FirmwareUpdate._execute('Clear GUARD partition',
-                                    FirmwareUpdate.PFLASH + ' -f -c -P GUARD')
-            FirmwareUpdate._execute('Clear DJVPD partition',
-                                    FirmwareUpdate.PFLASH + ' -f -c -P DJVPD')
-            FirmwareUpdate._execute('Clear HBEL partition',
-                                    FirmwareUpdate.PFLASH + ' -f -c -P HBEL')
+            for part, ecc_opt in self._get_parts_to_clean().items():
+                self._execute('Clear {} partition'.format(part),
+                              self.PFLASH + ' -f ' + ecc_opt + ' -P  ' + part)
 
             # OpenBMC firmware reset
-            with TaskTracker('Prepare temporary directory'):
-                if not os.path.isdir(FirmwareUpdate.TMP_DIR):
-                    os.mkdir(FirmwareUpdate.TMP_DIR)
-            with TaskTracker('Create empty RW image'):
-                # Get size of BMC RW partition
-                with open('/sys/class/mtd/mtd5/size', 'r') as f:
-                    rw_size = int(f.read())
-                # Create empty image
-                with open('/run/initramfs/image-rwfs', 'w') as f:
-                    f.write('\xff' * rw_size)
-            with TaskTracker('Clear white list'):
-                open('/run/initramfs/whitelist', 'w').close()
+            with TaskTracker('Enable the BMC clean'):
+                DbusClient(bus).start_unit(
+                    'obmc-flash-bmc-setenv@'
+                    'openbmconce\\x3dfactory\\x2dreset'
+                    '.service')
 
-        FirmwareUpdate._execute('Reboot BMC system', '/sbin/reboot')
+        self._execute('Reboot BMC system', '/sbin/reboot')
 
     def update(self, fw_file):
         """
@@ -728,7 +738,7 @@ def main():
         elif args.file:
             FirmwareUpdate(not args.yes, args.reset).update(args.file)
         elif args.reset:
-            FirmwareUpdate.reset(not args.yes)
+            FirmwareUpdate(not args.yes).reset()
         else:
             raise Exception(
                 'One or both of --file/--reset options must be specified')
