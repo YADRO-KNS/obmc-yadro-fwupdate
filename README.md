@@ -8,18 +8,23 @@ Script fwupdate.py is used to:
 
 ## Firmware package (distributive)
 Firmware package MUST contain files:
+* `MANIFEST` - Contains metadata about this bundle
+* `MANIFEST.sig` - Signature of MANIFEST made by the system private key
+* `publickey` - Public key generated from the image specific private key
+* `publickey.sig` - Signature of publickey made by the system private key
 * `image-bmc` - image of OpenBMC firmware
-* `image-bmc.digest` - digital signature of OpenBMC image
+* `image-bmc.sig` - Signature of OpenBMC image made by the image private key
 * `vesnin.pnor` - image of OpenPOWER firmware
-* `vesnin.pnor.digest` - digital signature of OpenPOWER image
+* `vesnin.pnor.sig` - Signature of OpenPOWER image made by the image private
+  key
 
 ## Customization of the update procedure
 The update procedure can be customized in runtime using special scripts
 placed inside the firmware package:
 * `obmc.update` - tar archive for customizing OpenBMC update procedure;
-* `obmc.update.digest` - digital signature of `obmc.update` archive;
+* `obmc.update.sig` - digital signature of `obmc.update` archive;
 * `opfw.update` - tar archive for customizing OpenPOWER update procedure;
-* `opfw.update.digest` - digital signature of `bpmc.update` archive;
+* `opfw.update.sig` - digital signature of `bpmc.update` archive;
 
 Each archive can contain one or both executable modules (scripts):
 * `preinstall` - used before writing new firmware image;
@@ -41,13 +46,19 @@ Possible exit codes from `preinstall` script:
 Exit codes from `postinstall` are ignored.
 
 ## Digital signature
-Digital signature files are created during build process. Signature is a
-binary file with SHA256 digest signed with private key. Private key is stored
-on a build server, public key MUST be placed to the BMC filesystem at path
-`/etc/yadro.public.pem`.
+Digital signature files are created during a build process. Signature is a
+binary file with SHA256 digest signed with a private key.
+
+The system's private key is stored on a build server, corresponded public key
+presents on the BMC filesystem at path `/etc/acitvationdata/yadro/publickey`.
 _TODO: Store public key inside the EEPROM (BMC's VPD)_
-Example command to create digest file:
-`openssl dgst -sha256 -sign privatekey.pem -out image-bmc.digest image-bmc`
+
+The upstream services support the bundle specific key pair. This possibility
+is also implemented here. But for simplifying, we are using the same key pair
+in both cases.
+
+Example command to create signature file:
+`openssl dgst -sha256 -sign privatekey -out image-bmc.sig image-bmc`
 
 ## Downgrade
 To perform downgrade firmware to version without signature use option
