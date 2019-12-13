@@ -312,18 +312,21 @@ class Signature(object):
     def __init__(self):
         self._folder = None
         self._keyfile = None
+        self._manifest = None
         self._hashfunc = None
 
-    @staticmethod
-    def _get_value(filename, tag):
+    def get_value(self, tag, filename=None):
         """
         Read the specified tag value from the file.
         """
+        if not filename:
+            filename = self._manifest
+
         with open(filename, 'r') as stream:
             for line in stream.readlines():
                 key, val = line.split('=')
                 if key == tag:
-                    return val.strip()
+                    return val.strip(' \t\n\r"')
             raise Exception('{} not found in {}!'.format(tag, filename))
 
     @staticmethod
@@ -367,16 +370,16 @@ class Signature(object):
         publickey = self._make_filename(folder, 'publickey')
         valid = False
 
-        for keytype in os.listdir(Signature.SYSTEM_KEYS_DIRECTORY):
+        for keytype in os.listdir(self.SYSTEM_KEYS_DIRECTORY):
             try:
-                keyfile = Signature._make_filename(
-                    Signature.SYSTEM_KEYS_DIRECTORY, keytype, 'publickey')
-                hashfn = Signature._make_filename(
-                    Signature.SYSTEM_KEYS_DIRECTORY, keytype, 'hashfunc')
-                hashfunc = Signature._get_value(hashfn, 'HashType')
+                keyfile = self._make_filename(
+                    self.SYSTEM_KEYS_DIRECTORY, keytype, 'publickey')
+                hashfn = self._make_filename(
+                    self.SYSTEM_KEYS_DIRECTORY, keytype, 'hashfunc')
+                hashfunc = self.get_value('HashType', hashfn)
 
-                Signature._verify_file(manifest, keyfile, hashfunc)
-                Signature._verify_file(publickey, keyfile, hashfunc)
+                self._verify_file(manifest, keyfile, hashfunc)
+                self._verify_file(publickey, keyfile, hashfunc)
                 valid = True
                 break
             except Exception:
@@ -385,7 +388,8 @@ class Signature(object):
         if valid:
             self._folder = folder
             self._keyfile = publickey
-            self._hashfunc = self._get_value(manifest, 'HashType')
+            self._manifest = manifest
+            self._hashfunc = self.get_value('HashType')
         else:
             raise Exception('System level verification failed!')
 
@@ -550,6 +554,23 @@ class FirmwareUpdate(object):
         if self._validator.USE_VERIFICATION:
             with TaskTracker('Check signature of firmware package'):
                 self._validator.system_level_verify(self.TMP_DIR)
+
+            # Check target machine type
+            try:
+                current_machine = self._validator.get_value(
+                    'OPENBMC_TARGET_MACHINE', '/etc/os-release')
+            except Exception:
+                # We are running on an old BMC version.
+                print('{}Current machine name is undefined, '
+                      'the check is skipped{}'.format(CLR_ERROR, CLR_RESET))
+                current_machine = None
+
+            if current_machine:
+                target_machine = self._validator.get_value('MachineName')
+                if target_machine != current_machine:
+                    raise Exception('Firmware package is not compatible with '
+                                    'this system ({} != {})!'
+                                    .format(current_machine, target_machine))
 
             # Prepare for update
             obmc_file = os.path.join(self.TMP_DIR, 'image-bmc')
