@@ -636,7 +636,7 @@ class FirmwareUpdate(object):
         except subprocess.CalledProcessError as e:
             raise Exception(e.output)
 
-        if not self._clean_install:
+        if not self._clean_install and os.path.exists(nvram_image):
             self._execute('Recover NVRAM configuration',
                           self.PFLASH + ' -f -e -P NVRAM -p ' + nvram_image)
 
