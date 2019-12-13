@@ -551,16 +551,16 @@ class FirmwareUpdate(object):
             with TaskTracker('Check signature of firmware package'):
                 self._validator.system_level_verify(self.TMP_DIR)
 
-        # Prepare for update
-        obmc_file = os.path.join(self.TMP_DIR, 'image-bmc')
-        self._verify(obmc_file)
-        obmc_preinstall, obmc_postinstall = self\
-            ._prepare_customization('obmc.update')
+            # Prepare for update
+            obmc_file = os.path.join(self.TMP_DIR, 'image-bmc')
+            self._verify(obmc_file)
+            obmc_preinstall, obmc_postinstall = self\
+                ._prepare_customization('obmc.update')
 
-        opfw_file = os.path.join(self.TMP_DIR, 'vesnin.pnor')
-        self._verify(opfw_file)
-        opfw_preinstall, opfw_postinstall = self\
-            ._prepare_customization('opfw.update')
+            opfw_file = os.path.join(self.TMP_DIR, 'vesnin.pnor')
+            self._verify(opfw_file)
+            opfw_preinstall, opfw_postinstall = self\
+                ._prepare_customization('opfw.update')
 
         with TaskTracker('Lock PNOR access') as lock_task, FirmwareLock():
             lock_task.success()
