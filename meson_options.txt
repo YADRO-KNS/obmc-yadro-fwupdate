@@ -11,3 +11,17 @@ option('mapper-interface', type: 'string',
 option('systemd-properties-interface', type: 'string',
        value: 'org.freedesktop.DBus.Properties',
        description: 'The systemd properties interface.')
+
+option('software-objpath', type: 'string',
+       value: '/xyz/openbmc_project/software',
+       description: 'The software manager Dbus root.')
+
+option('activation-iface', type: 'string',
+       value: 'xyz.openbmc_project.Software.Activation',
+       description: 'The software activation interface.')
+option('version-iface', type: 'string',
+       value: 'xyz.openbmc_project.Software.Version',
+       description: 'The software version interface.')
+option('extended-version-iface', type: 'string',
+       value: 'xyz.openbmc_project.Software.ExtendedVersion',
+       description: 'The software extended version interface.')

@@ -20,12 +20,69 @@
 
 #include "config.h"
 
+#include "utils/dbus.hpp"
+
 #include <getopt.h>
 
 #include <cstdio>
 #include <cstdlib>
 #include <stdexcept>
 #include <string>
+
+/**
+ * @brief Prints version details of all avtive software objects.
+ */
+static void show_version()
+{
+    auto tree = utils::getSubTree(SOFTWARE_OBJPATH, {ACTIVATION_IFACE});
+    for (auto& tree_entry : tree)
+    {
+        for (auto& bus_entry : tree_entry.second)
+        {
+            auto activation = utils::getProperty<std::string>(
+                bus_entry.first, tree_entry.first, ACTIVATION_IFACE,
+                "Activation");
+            if (activation != ACTIVATION_IFACE ".Activations.Active")
+            {
+                continue;
+            }
+
+            auto purpose = utils::getProperty<std::string>(
+                bus_entry.first, tree_entry.first, VERSION_IFACE, "Purpose");
+            auto version = utils::getProperty<std::string>(
+                bus_entry.first, tree_entry.first, VERSION_IFACE, "Version");
+
+            printf("%-6s  %s   [ID=%s]\n",
+                   purpose.c_str() + purpose.rfind('.') + 1, version.c_str(),
+                   tree_entry.first.c_str() + tree_entry.first.rfind('/') + 1);
+
+            try
+            {
+                auto ext_version = utils::getProperty<std::string>(
+                    bus_entry.first, tree_entry.first, EXTENDED_VERSION_IFACE,
+                    "ExtendedVersion");
+                size_t begin = 0;
+                while (begin != std::string::npos)
+                {
+                    size_t end = ext_version.find(',', begin);
+                    printf("        %s\n",
+                           ext_version.substr(begin, end - begin).c_str());
+
+                    if (end != std::string::npos)
+                    {
+                        end++;
+                    }
+                    begin = end;
+                }
+            }
+            catch (const std::runtime_error&)
+            {
+                // NOTE: Only PNOR contains the Extended Version field.
+                continue;
+            }
+        }
+    }
+}
 
 /**
  * @brief Print usage
@@ -75,7 +132,7 @@ int main(int argc, char* argv[])
     bool force_yes = false;
     bool do_reset = false;
     bool skip_sign_check = false;
-    bool show_version = false;
+    bool do_show_version = false;
     std::string firmware_file;
 
     opterr = 0;
@@ -105,7 +162,7 @@ int main(int argc, char* argv[])
                 break;
 
             case 'v':
-                show_version = true;
+                do_show_version = true;
                 break;
 
             default:
@@ -117,9 +174,9 @@ int main(int argc, char* argv[])
 
     try
     {
-        if (show_version)
+        if (do_show_version)
         {
-            printf("Show versions!\n");
+            show_version();
         }
         else if (!firmware_file.empty())
         {

@@ -18,6 +18,11 @@ conf.set_quoted('MAPPER_INTERFACE', get_option('mapper-interface'))
 conf.set_quoted('SYSTEMD_PROPERTIES_INTERFACE',
                 get_option('systemd-properties-interface'))
 
+conf.set_quoted('SOFTWARE_OBJPATH', get_option('software-objpath'))
+conf.set_quoted('ACTIVATION_IFACE', get_option('activation-iface'))
+conf.set_quoted('VERSION_IFACE', get_option('version-iface'))
+conf.set_quoted('EXTENDED_VERSION_IFACE', get_option('extended-version-iface'))
+
 configure_file(output: 'config.h', configuration: conf)
 
 executable(
