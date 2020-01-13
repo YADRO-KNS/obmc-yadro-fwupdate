@@ -1,0 +1,13 @@
+option('mapper-busname', type: 'string',
+       value: 'xyz.openbmc_project.ObjectMapper',
+       description: 'The object mapper busname.')
+option('mapper-path', type: 'string',
+       value: '/xyz/openbmc_project/object_mapper',
+       description: 'The object mapper object path.')
+option('mapper-interface', type: 'string',
+       value: 'xyz.openbmc_project.ObjectMapper',
+       description: 'The object mapper interface.')
+
+option('systemd-properties-interface', type: 'string',
+       value: 'org.freedesktop.DBus.Properties',
+       description: 'The systemd properties interface.')
