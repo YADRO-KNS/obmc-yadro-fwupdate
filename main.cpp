@@ -145,6 +145,8 @@ void reset_firmware(bool interactive)
 #endif
         openbmc::reset();
     }
+
+    openbmc::reboot(interactive);
 }
 
 /**

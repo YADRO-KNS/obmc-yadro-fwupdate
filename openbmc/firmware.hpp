@@ -36,4 +36,9 @@ void unlock(void);
  */
 void reset(void);
 
+/**
+ * @brief Reboot the BMC.
+ */
+void reboot(bool interactive);
+
 } // namespace openbmc
