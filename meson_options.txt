@@ -33,6 +33,9 @@ option('reboot-guard-disable', type: 'string',
        value: 'reboot-guard-disable.service',
        description: 'The systemd service to unlock the BMC rebooting')
 
+option('openpower-support', type: 'boolean', value: true,
+       description: 'Enable support for OpenPOWER firmwares')
+
 option('hiomapd-path', type: 'string',
        value: '/xyz/openbmc_project/Hiomapd',
        description: 'The hiomapd object path.')

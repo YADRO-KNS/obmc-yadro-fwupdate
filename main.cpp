@@ -21,9 +21,12 @@
 #include "config.h"
 
 #include "openbmc/firmware.hpp"
-#include "openpower/firmware.hpp"
 #include "utils/confirm.hpp"
 #include "utils/dbus.hpp"
+
+#ifdef OPENPOWER_SUPPORT
+#include "openpower/firmware.hpp"
+#endif
 
 #include <getopt.h>
 
@@ -95,7 +98,9 @@ struct FirmwareLock
 
         try
         {
+#ifdef OPENPOWER_SUPPORT
             openpower::lock();
+#endif
         }
         catch (...)
         {
@@ -106,7 +111,9 @@ struct FirmwareLock
 
     ~FirmwareLock()
     {
+#ifdef OPENPOWER_SUPPORT
         openpower::unlock();
+#endif
         openbmc::unlock();
     }
 
