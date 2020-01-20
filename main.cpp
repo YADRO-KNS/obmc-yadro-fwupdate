@@ -20,6 +20,8 @@
 
 #include "config.h"
 
+#include "openbmc/firmware.hpp"
+#include "openpower/firmware.hpp"
 #include "utils/confirm.hpp"
 #include "utils/dbus.hpp"
 
@@ -85,6 +87,33 @@ static void show_version()
     }
 }
 
+struct FirmwareLock
+{
+    FirmwareLock()
+    {
+        openbmc::lock();
+
+        try
+        {
+            openpower::lock();
+        }
+        catch (...)
+        {
+            openbmc::unlock();
+            std::rethrow_exception(std::current_exception());
+        }
+    }
+
+    ~FirmwareLock()
+    {
+        openpower::unlock();
+        openbmc::unlock();
+    }
+
+    FirmwareLock(const FirmwareLock&) = delete;
+    FirmwareLock& operator=(const FirmwareLock&) = delete;
+};
+
 /**
  * @brief Reset all settings to manufacturing default.
  *
@@ -102,7 +131,11 @@ void reset_firmware(bool interactive)
         return;
     }
 
-    printf("do reset\n");
+    {
+        FirmwareLock lock;
+
+        printf("do reset\n");
+    }
 }
 
 /**

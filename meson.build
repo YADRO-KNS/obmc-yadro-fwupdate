@@ -27,6 +27,11 @@ conf.set_quoted('SYSTEMD_BUSNAME', get_option('systemd-busname'))
 conf.set_quoted('SYSTEMD_PATH', get_option('systemd-path'))
 conf.set_quoted('SYSTEMD_INTERFACE', get_option('systemd-interface'))
 
+conf.set_quoted('REBOOT_GUARD_ENABLE', get_option('reboot-guard-enable'))
+conf.set_quoted('REBOOT_GUARD_DISABLE', get_option('reboot-guard-disable'))
+conf.set_quoted('HIOMAPD_PATH', get_option('hiomapd-path'))
+conf.set_quoted('HIOMAPD_IFACE', get_option('hiomapd-iface'))
+
 configure_file(output: 'config.h', configuration: conf)
 
 executable(
@@ -35,6 +40,8 @@ executable(
     'utils/dbus.cpp',
     'utils/confirm.cpp',
     'utils/tracer.cpp',
+    'openbmc/firmware.cpp',
+    'openpower/firmware.cpp',
     dependencies: [
         dependency('sdbusplus'),
     ],

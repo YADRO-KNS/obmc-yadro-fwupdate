@@ -26,6 +26,20 @@ option('extended-version-iface', type: 'string',
        value: 'xyz.openbmc_project.Software.ExtendedVersion',
        description: 'The software extended version interface.')
 
+option('reboot-guard-enable', type: 'string',
+       value: 'reboot-guard-enable.service',
+       description: 'The systemd service to lock the BMC rebooting')
+option('reboot-guard-disable', type: 'string',
+       value: 'reboot-guard-disable.service',
+       description: 'The systemd service to unlock the BMC rebooting')
+
+option('hiomapd-path', type: 'string',
+       value: '/xyz/openbmc_project/Hiomapd',
+       description: 'The hiomapd object path.')
+option('hiomapd-iface', type: 'string',
+       value: 'xyz.openbmc_project.Hiomapd.Control',
+       description: 'The hiomapd control interface.')
+
 option('systemd-busname', type: 'string',
        value: 'org.freedesktop.systemd1',
        description: 'The systemd busname.')
