@@ -20,6 +20,7 @@
 
 #include "config.h"
 
+#include "utils/confirm.hpp"
 #include "utils/dbus.hpp"
 
 #include <getopt.h>
@@ -82,6 +83,26 @@ static void show_version()
             }
         }
     }
+}
+
+/**
+ * @brief Reset all settings to manufacturing default.
+ *
+ * @param interactive - flag to use interactive mode
+ *                      (ask for user confirmation)
+ */
+void reset_firmware(bool interactive)
+{
+    constexpr auto LOST_DATA_WARN =
+        "WARNING: "
+        "All settings will be resotred to manufacturing default values.";
+
+    if (interactive && !utils::confirm(LOST_DATA_WARN))
+    {
+        return;
+    }
+
+    printf("do reset\n");
 }
 
 /**
@@ -191,10 +212,7 @@ int main(int argc, char* argv[])
         }
         else if (do_reset)
         {
-            printf("Reseting of settings ");
-            if (force_yes)
-                printf("without confirmations ");
-            printf("\n");
+            reset_firmware(!force_yes);
         }
         else
         {

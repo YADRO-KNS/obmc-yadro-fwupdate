@@ -29,6 +29,7 @@ executable(
     'fwupdate',
     'main.cpp',
     'utils/dbus.cpp',
+    'utils/confirm.cpp',
     dependencies: [
         dependency('sdbusplus'),
     ],
