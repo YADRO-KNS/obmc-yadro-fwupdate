@@ -30,6 +30,7 @@ executable(
     'main.cpp',
     'utils/dbus.cpp',
     'utils/confirm.cpp',
+    'utils/tracer.cpp',
     dependencies: [
         dependency('sdbusplus'),
     ],
