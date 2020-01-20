@@ -61,4 +61,21 @@ ObjectsMap getSubTree(const Path& path, const Interfaces& ifaces, int32_t depth)
     return objects;
 }
 
+bool startUnit(const std::string& unitname)
+{
+    auto req = bus.new_method_call(SYSTEMD_BUSNAME, SYSTEMD_PATH,
+                                   SYSTEMD_INTERFACE, "StartUnit");
+    req.append(unitname, "replace");
+    try
+    {
+        bus.call(req);
+    }
+    catch (const sdbusplus::exception::SdBusError&)
+    {
+        return false;
+    }
+
+    return true;
+}
+
 } // namespace utils

@@ -23,6 +23,10 @@ conf.set_quoted('ACTIVATION_IFACE', get_option('activation-iface'))
 conf.set_quoted('VERSION_IFACE', get_option('version-iface'))
 conf.set_quoted('EXTENDED_VERSION_IFACE', get_option('extended-version-iface'))
 
+conf.set_quoted('SYSTEMD_BUSNAME', get_option('systemd-busname'))
+conf.set_quoted('SYSTEMD_PATH', get_option('systemd-path'))
+conf.set_quoted('SYSTEMD_INTERFACE', get_option('systemd-interface'))
+
 configure_file(output: 'config.h', configuration: conf)
 
 executable(
