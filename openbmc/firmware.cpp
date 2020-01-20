@@ -25,6 +25,10 @@
 #include "utils/dbus.hpp"
 #include "utils/tracer.hpp"
 
+#define ENV_FACTORY_RESET "openbmconce\\x3dfactory\\x2dreset"
+#define SERVICE_FACTORY_RESET                                                  \
+    "obmc-flash-bmc-setenv@" ENV_FACTORY_RESET ".service"
+
 namespace openbmc
 {
 
@@ -39,6 +43,13 @@ void unlock(void)
     utils::tracer::trace_task(
         "Unocking BMC reboot",
         std::bind(utils::startUnit, REBOOT_GUARD_DISABLE));
+}
+
+void reset(void)
+{
+    utils::tracer::trace_task(
+        "Enable the BMC clean",
+        std::bind(utils::startUnit, SERVICE_FACTORY_RESET));
 }
 
 } // namespace openbmc

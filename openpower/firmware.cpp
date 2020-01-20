@@ -23,8 +23,99 @@
 #include "utils/dbus.hpp"
 #include "utils/tracer.hpp"
 
+#include <map>
+#include <sstream>
+#include <string>
+
 namespace openpower
 {
+
+template <typename... Ts>
+std::string concat_string(Ts const&... ts)
+{
+    std::stringstream s;
+    ((s << ts << " "), ...) << std::endl;
+    return s.str();
+}
+
+// Helper function to run pflash command
+// Returns return code and the stdout
+template <typename... Ts>
+std::pair<int, std::string> pflash(Ts const&... ts)
+{
+    std::array<char, 512> buffer;
+    std::string cmd = concat_string(PFLASH_CMD, ts...);
+    std::stringstream result;
+    int rc;
+    FILE* pipe = popen(cmd.c_str(), "r");
+    if (!pipe)
+    {
+        throw std::runtime_error("popen() failed!");
+    }
+    while (fgets(buffer.data(), buffer.size(), pipe) != nullptr)
+    {
+        result << buffer.data();
+    }
+    rc = pclose(pipe);
+    return {rc, result.str()};
+}
+
+// Map of PNOR partitions as partition name -> flag is it should use ECC clear
+using PartsMap = std::map<std::string, bool>;
+
+PartsMap getPartsToClear(const std::string& info)
+{
+    PartsMap ret;
+    std::istringstream iss(info);
+    std::string line;
+
+    while (std::getline(iss, line))
+    {
+        // Each line looks like
+        // ID=06 MVPD 0x0012d000..0x001bd000 (actual=0x00090000) [E--P--F-C-]
+        // Flag 'F' means REPROVISION
+        // Flag 'E' means ECC required
+        auto pos = line.find('[');
+        if (pos == std::string::npos)
+        {
+            continue;
+        }
+        auto flags = line.substr(pos);
+        if (flags.find('F') != std::string::npos)
+        {
+            // This is a partition to be cleared
+            pos = line.find_first_of(' '); // After "ID=xx"
+            if (pos == std::string::npos)
+            {
+                continue;
+            }
+
+            pos = line.find_first_not_of(' ', pos); // After spaces
+            if (pos == std::string::npos)
+            {
+                continue;
+            }
+
+            auto end = line.find_first_of(' ', pos); // The end of part name
+            if (end == std::string::npos)
+            {
+                continue;
+            }
+            line = line.substr(pos, end - pos); // The part name
+
+            ret[line] = flags.find('E') != std::string::npos;
+        }
+    }
+
+    return ret;
+}
+
+// Get partitions that should be cleared
+PartsMap getPartsToClear()
+{
+    const auto& [rc, pflashInfo] = pflash("-i | grep ^ID | grep 'F'");
+    return getPartsToClear(pflashInfo);
+}
 
 /**
  * @brief Get HIOMPAD bus name.
@@ -110,6 +201,28 @@ void lock(void)
 void unlock(void)
 {
     utils::tracer::trace_task("Resuming HIOMAPD", hiomapd_resume);
+}
+
+void reset(void)
+{
+    auto partitions = getPartsToClear();
+    for (auto p : partitions)
+    {
+        fprintf(stdout, "Clear %s partition [%s]... ", p.first.c_str(),
+                p.second ? "ECC" : "Erase");
+
+        int rc;
+        std::tie(rc, std::ignore) =
+            pflash("-P", p.first, p.second ? "-c" : "-e", "-f >/dev/null");
+
+        if (rc != 0)
+        {
+            utils::tracer::fail();
+            throw std::runtime_error("Failed to reset PNOR flash.");
+        }
+
+        utils::tracer::done();
+    }
 }
 
 } // namespace openpower

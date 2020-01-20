@@ -31,4 +31,9 @@ void lock(void);
  */
 void unlock(void);
 
+/**
+ * @brief Clear RW partition.
+ */
+void reset(void);
+
 } // namespace openbmc

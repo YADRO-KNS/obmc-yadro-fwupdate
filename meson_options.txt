@@ -43,6 +43,9 @@ option('hiomapd-iface', type: 'string',
        value: 'xyz.openbmc_project.Hiomapd.Control',
        description: 'The hiomapd control interface.')
 
+option('pflash-cmd', type: 'string', value: 'pflash',
+       description: 'command line tool to manipulate PNOR flash')
+
 option('systemd-busname', type: 'string',
        value: 'org.freedesktop.systemd1',
        description: 'The systemd busname.')

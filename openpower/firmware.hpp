@@ -31,4 +31,9 @@ void lock(void);
  */
 void unlock(void);
 
+/**
+ * @brief Clear PNOR partitions on the flash device.
+ */
+void reset(void);
+
 } // namespace openpower

@@ -140,8 +140,10 @@ void reset_firmware(bool interactive)
 
     {
         FirmwareLock lock;
-
-        printf("do reset\n");
+#ifdef OPENPOWER_SUPPORT
+        openpower::reset();
+#endif
+        openbmc::reset();
     }
 }
 
