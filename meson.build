@@ -13,6 +13,7 @@ fwupdate_sources = [
     'utils/dbus.cpp',
     'utils/confirm.cpp',
     'utils/tracer.cpp',
+    'utils/subprocess.cpp',
     'openbmc/firmware.cpp',
 ]
 

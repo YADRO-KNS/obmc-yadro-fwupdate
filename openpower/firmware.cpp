@@ -20,45 +20,17 @@
 
 #include "config.h"
 
+#include "openpower/firmware.hpp"
+
 #include "utils/dbus.hpp"
+#include "utils/subprocess.hpp"
 #include "utils/tracer.hpp"
 
 #include <map>
-#include <sstream>
-#include <string>
 
 namespace openpower
 {
 
-template <typename... Ts>
-std::string concat_string(Ts const&... ts)
-{
-    std::stringstream s;
-    ((s << ts << " "), ...) << std::endl;
-    return s.str();
-}
-
-// Helper function to run pflash command
-// Returns return code and the stdout
-template <typename... Ts>
-std::pair<int, std::string> pflash(Ts const&... ts)
-{
-    std::array<char, 512> buffer;
-    std::string cmd = concat_string(PFLASH_CMD, ts...);
-    std::stringstream result;
-    int rc;
-    FILE* pipe = popen(cmd.c_str(), "r");
-    if (!pipe)
-    {
-        throw std::runtime_error("popen() failed!");
-    }
-    while (fgets(buffer.data(), buffer.size(), pipe) != nullptr)
-    {
-        result << buffer.data();
-    }
-    rc = pclose(pipe);
-    return {rc, result.str()};
-}
 
 // Map of PNOR partitions as partition name -> flag is it should use ECC clear
 using PartsMap = std::map<std::string, bool>;
@@ -113,7 +85,8 @@ PartsMap getPartsToClear(const std::string& info)
 // Get partitions that should be cleared
 PartsMap getPartsToClear()
 {
-    const auto& [rc, pflashInfo] = pflash("-i | grep ^ID | grep 'F'");
+    const auto& [rc, pflashInfo] =
+        utils::subprocess::exec(PFLASH_CMD, "-i | grep ^ID | grep 'F'");
     return getPartsToClear(pflashInfo);
 }
 
@@ -210,18 +183,21 @@ void reset(void)
     {
         fprintf(stdout, "Clear %s partition [%s]... ", p.first.c_str(),
                 p.second ? "ECC" : "Erase");
-
-        int rc;
-        std::tie(rc, std::ignore) =
-            pflash("-P", p.first, p.second ? "-c" : "-e", "-f >/dev/null");
-
-        if (rc != 0)
+        try
+        {
+            int rc;
+            std::tie(rc, std::ignore) = utils::subprocess::exec(
+                PFLASH_CMD, "-P", p.first, p.second ? "-c" : "-e",
+                "-f >/dev/null");
+            utils::subprocess::check_wait_status(rc);
+            utils::tracer::done();
+        }
+        catch (...)
         {
             utils::tracer::fail();
             throw std::runtime_error("Failed to reset PNOR flash.");
         }
 
-        utils::tracer::done();
     }
 }
 

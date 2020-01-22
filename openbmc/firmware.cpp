@@ -24,6 +24,7 @@
 
 #include "utils/confirm.hpp"
 #include "utils/dbus.hpp"
+#include "utils/subprocess.hpp"
 #include "utils/tracer.hpp"
 
 #define ENV_FACTORY_RESET "openbmconce\\x3dfactory\\x2dreset"
@@ -53,39 +54,6 @@ void reset(void)
         std::bind(utils::startUnit, SERVICE_FACTORY_RESET));
 }
 
-/**
- * @brief Execute reboot command.
- */
-void run_reboot(void)
-{
-    int rc = system("/sbin/reboot");
-    char buf[128] = {0};
-
-    if (rc == -1)
-    {
-        snprintf(buf, sizeof(buf) - 1, "`system` call failed.\n");
-        throw std::runtime_error(buf);
-    }
-
-    if (WIFSIGNALED(rc))
-    {
-        snprintf(buf, sizeof(buf) - 1, "Reboot killed by signal %d.",
-                 WTERMSIG(rc));
-        throw std::runtime_error(buf);
-    }
-
-    if (WIFEXITED(rc))
-    {
-        int code = WEXITSTATUS(rc);
-        if (code != EXIT_SUCCESS)
-        {
-            snprintf(buf, sizeof(buf) - 1, "Reboot exited with status %d.",
-                     code);
-            throw std::runtime_error(buf);
-        }
-    }
-}
-
 void reboot(bool interactive)
 {
     bool manual_reboot = false;
@@ -99,7 +67,12 @@ void reboot(bool interactive)
     {
         if (!manual_reboot)
         {
-            utils::tracer::trace_task("Reboot BMC system", run_reboot);
+            utils::tracer::trace_task("Reboot BMC system", []() {
+                int rc;
+                std::tie(rc, std::ignore) =
+                    utils::subprocess::exec("/sbin/reboot");
+                utils::subprocess::check_wait_status(rc);
+            });
         }
     }
     catch (...)
