@@ -85,8 +85,8 @@ PartsMap getPartsToClear(const std::string& info)
 // Get partitions that should be cleared
 PartsMap getPartsToClear()
 {
-    const auto& [rc, pflashInfo] =
-        utils::subprocess::exec(PFLASH_CMD, "-i | grep ^ID | grep 'F'");
+    const auto& [rc, pflashInfo] = utils::subprocess::exec(
+        PFLASH_CMD, "-i 2>/dev/null | grep ^ID | grep 'F'");
     return getPartsToClear(pflashInfo);
 }
 
@@ -179,6 +179,11 @@ void unlock(void)
 void reset(void)
 {
     auto partitions = getPartsToClear();
+    if (partitions.empty())
+    {
+        fprintf(stdout, "NOTE: No partitions found the PNOR flash!\n");
+    }
+
     for (auto p : partitions)
     {
         fprintf(stdout, "Clear %s partition [%s]... ", p.first.c_str(),
