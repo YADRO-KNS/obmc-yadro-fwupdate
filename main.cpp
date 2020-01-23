@@ -23,6 +23,7 @@
 #include "openbmc/firmware.hpp"
 #include "utils/confirm.hpp"
 #include "utils/dbus.hpp"
+#include "utils/tracer.hpp"
 
 #ifdef OPENPOWER_SUPPORT
 #include "openpower/firmware.hpp"
@@ -32,8 +33,11 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <filesystem>
 #include <stdexcept>
 #include <string>
+
+namespace fs = std::filesystem;
 
 /**
  * @brief Prints version details of all avtive software objects.
@@ -150,6 +154,71 @@ void reset_firmware(bool interactive)
 }
 
 /**
+ * @brief Auto removable path object.
+ */
+struct RemovablePath : public fs::path
+{
+    using fs::path::path;
+
+    // Copy operations are disallowed
+    RemovablePath(const RemovablePath&) = delete;
+    RemovablePath& operator=(const RemovablePath&) = delete;
+
+    // Move operations are allowed
+    RemovablePath(RemovablePath&&) = default;
+    RemovablePath& operator=(RemovablePath&&) = default;
+
+    // Recursive delete filesystem entries
+    ~RemovablePath()
+    {
+        if (!empty())
+        {
+            std::error_code ec;
+            fs::remove_all(*this, ec);
+        }
+    }
+};
+
+/**
+ * @brief Flash the firmware files.
+ *
+ * @param firmware_file   - Path to firmware file.
+ * @param reset           - flag to drop current settings.
+ * @param interactive     - flag to use interactive mode.
+ * @param skip_sign_check - flag to skip signature verification.
+ */
+void flash_firmware(const std::string& firmware_file, bool reset,
+                    bool interactive, bool skip_sign_check)
+{
+    fs::path fn(firmware_file);
+    if (!fs::exists(fn))
+    {
+        throw std::runtime_error("Firmware package not found!");
+    }
+
+    RemovablePath tmpDir;
+    utils::tracer::trace_task("Prepare temporary directory", [&tmpDir]() {
+        std::string dir = fs::temp_directory_path() / "fwupdateXXXXXX";
+        if (!mkdtemp(dir.data()))
+        {
+            throw std::system_error(errno, std::generic_category());
+        }
+
+        tmpDir = dir;
+    });
+
+#ifdef OPENPOWER_SUPPORT
+    if (!interactive && skip_sign_check && fn.extension() == PNOR_FILE_EXT)
+    {
+        // NOTE: This way is used by openpower-pnor-update@.service
+        //       instead directly call pflash
+        openpower::flash({fn}, reset ? "" : tmpDir.string());
+        return;
+    }
+#endif
+}
+
+/**
  * @brief Print usage
  *
  * @param app - Application name
@@ -245,14 +314,8 @@ int main(int argc, char* argv[])
         }
         else if (!firmware_file.empty())
         {
-            printf("Flashing '%s' ", firmware_file.c_str());
-            if (force_yes)
-                printf("without confirmations ");
-            if (skip_sign_check)
-                printf("skip the sing checks ");
-            if (do_reset)
-                printf("with reset of settings");
-            printf("\n");
+            flash_firmware(firmware_file, do_reset, !force_yes,
+                           skip_sign_check);
         }
         else if (do_reset)
         {

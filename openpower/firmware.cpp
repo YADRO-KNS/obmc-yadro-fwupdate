@@ -26,11 +26,13 @@
 #include "utils/subprocess.hpp"
 #include "utils/tracer.hpp"
 
+#include <filesystem>
 #include <map>
 
 namespace openpower
 {
 
+namespace fs = std::filesystem;
 
 // Map of PNOR partitions as partition name -> flag is it should use ECC clear
 using PartsMap = std::map<std::string, bool>;
@@ -202,7 +204,64 @@ void reset(void)
             utils::tracer::fail();
             throw std::runtime_error("Failed to reset PNOR flash.");
         }
+    }
+}
 
+struct NVRAMNotCreated : public std::runtime_error
+{
+    explicit NVRAMNotCreated() :
+        std::runtime_error::runtime_error("NVRAM is not created!")
+    {
+    }
+};
+
+void flash(const Files& firmware, const fs::path& tmpdir)
+{
+    fs::path nvram(tmpdir);
+
+    if (!nvram.empty())
+    {
+        nvram /= "nvram.bin";
+        try
+        {
+            utils::tracer::trace_task("Preserve NVRAM configuration", [&]() {
+                int rc;
+                std::tie(rc, std::ignore) =
+                    utils::subprocess::exec(PFLASH_CMD, "-P NVRAM -r", nvram);
+                utils::subprocess::check_wait_status(rc);
+                if (!fs::exists(nvram))
+                {
+                    throw NVRAMNotCreated();
+                }
+            });
+        }
+        catch (const NVRAMNotCreated&)
+        {
+            fprintf(stdout, "NOTE: Preserving NVRAM failed, "
+                            "default settings will be used.\n");
+        }
+    }
+
+    for (const auto& entry : firmware)
+    {
+        fprintf(stdout, "Writing %s ... \n", entry.filename().c_str());
+        fflush(stdout);
+
+        // NOTE: This process may take a lot of time and we want to show the
+        //       progress from original pflash output.
+        int rc =
+            system(utils::concat_string(PFLASH_CMD, "-f -E -p", entry).c_str());
+        utils::subprocess::check_wait_status(rc);
+    }
+
+    if (!nvram.empty() && fs::exists(nvram))
+    {
+        utils::tracer::trace_task("Recover NVRAM configuration", [&]() {
+            int rc;
+            std::tie(rc, std::ignore) =
+                utils::subprocess::exec(PFLASH_CMD, "-f -e -P NVRAM -p", nvram);
+            utils::subprocess::check_wait_status(rc);
+        });
     }
 }
 

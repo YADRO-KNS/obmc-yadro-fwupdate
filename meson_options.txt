@@ -45,6 +45,8 @@ option('hiomapd-iface', type: 'string',
 
 option('pflash-cmd', type: 'string', value: 'pflash',
        description: 'command line tool to manipulate PNOR flash')
+option('pnor-file-ext', type: 'string', value: '.pnor',
+       description: 'The extension of the PNOR firmware image file.')
 
 option('systemd-busname', type: 'string',
        value: 'org.freedesktop.systemd1',

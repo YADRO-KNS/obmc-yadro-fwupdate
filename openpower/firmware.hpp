@@ -18,8 +18,15 @@
  * limitations under the License.
  */
 
+#pragma once
+
+#include <filesystem>
+#include <set>
+
 namespace openpower
 {
+namespace fs = std::filesystem;
+using Files = std::set<fs::path>;
 
 /**
  * @brief Lock access to PNOR flash drive.
@@ -35,5 +42,15 @@ void unlock(void);
  * @brief Clear PNOR partitions on the flash device.
  */
 void reset(void);
+
+/**
+ * @brief Flash firmware to flash drive.
+ *        Optionally keep NVRAM.
+ *
+ * @param firmware  - Set of firmware images.
+ * @param tmpdir    - Path to temporary directory.
+ *                    If not specified the NVRAM will not be restored.
+ */
+void flash(const Files& firmware, const fs::path& tmpdir = "");
 
 } // namespace openpower

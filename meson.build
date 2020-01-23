@@ -46,6 +46,7 @@ if openpower_support
     conf.set_quoted('HIOMAPD_PATH', get_option('hiomapd-path'))
     conf.set_quoted('HIOMAPD_IFACE', get_option('hiomapd-iface'))
     conf.set_quoted('PFLASH_CMD', get_option('pflash-cmd'))
+    conf.set_quoted('PNOR_FILE_EXT', get_option('pnor-file-ext'))
 
     fwupdate_sources += [
         'openpower/firmware.cpp',
