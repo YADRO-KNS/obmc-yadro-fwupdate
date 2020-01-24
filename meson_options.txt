@@ -57,3 +57,6 @@ option('systemd-path', type: 'string',
 option('systemd-interface', type: 'string',
        value: 'org.freedesktop.systemd1.Manager',
        description: 'The systemd management interface.')
+
+option('manifest-file-name', type: 'string', value: 'MANIFEST',
+       description: 'The name of the MANIFEST file.')

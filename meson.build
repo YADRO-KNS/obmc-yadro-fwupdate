@@ -12,6 +12,7 @@ fwupdate_sources = [
     'main.cpp',
     'utils/dbus.cpp',
     'utils/confirm.cpp',
+    'utils/tags.cpp',
     'utils/tracer.cpp',
     'utils/subprocess.cpp',
     'openbmc/firmware.cpp',
@@ -52,6 +53,8 @@ if openpower_support
         'openpower/firmware.cpp',
     ]
 endif
+
+conf.set_quoted('MANIFEST_FILE_NAME', get_option('manifest-file-name'))
 
 configure_file(output: 'config.h', configuration: conf)
 

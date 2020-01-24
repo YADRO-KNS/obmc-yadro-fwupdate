@@ -23,6 +23,8 @@
 #include "openbmc/firmware.hpp"
 #include "utils/confirm.hpp"
 #include "utils/dbus.hpp"
+#include "utils/subprocess.hpp"
+#include "utils/tags.hpp"
 #include "utils/tracer.hpp"
 
 #ifdef OPENPOWER_SUPPORT
@@ -196,6 +198,24 @@ void flash_firmware(const std::string& firmware_file, bool reset,
         throw std::runtime_error("Firmware package not found!");
     }
 
+    if (interactive)
+    {
+        std::string title("WARNING: Firmware will be updated.\n");
+
+        if (reset)
+        {
+            title += "All settings will be restored to manufacture default "
+                     "values.\n";
+        }
+
+        title += "Please do not turn off the system during update!";
+
+        if (!utils::confirm(title.c_str()))
+        {
+            return;
+        }
+    }
+
     RemovablePath tmpDir;
     utils::tracer::trace_task("Prepare temporary directory", [&tmpDir]() {
         std::string dir = fs::temp_directory_path() / "fwupdateXXXXXX";
@@ -216,6 +236,53 @@ void flash_firmware(const std::string& firmware_file, bool reset,
         return;
     }
 #endif
+
+    utils::tracer::trace_task("Unpack firmware package", [fn, &tmpDir]() {
+        int rc;
+        std::tie(rc, std::ignore) = utils::subprocess::exec(
+            "tar -xzf", fn, "-C", tmpDir, " 2>/dev/null");
+        utils::subprocess::check_wait_status(rc);
+    });
+
+    auto manifestFile(tmpDir / MANIFEST_FILE_NAME);
+    if (!fs::exists(manifestFile))
+    {
+        throw std::runtime_error("No MANIFEST file found!");
+    }
+
+    auto purpose = utils::get_tag_value(manifestFile, "purpose");
+    // Cut off `xyz.openbmc_poroject.Software.Version.VersionPurpose.`
+    purpose = purpose.substr(purpose.rfind('.') + 1);
+
+    constexpr auto SystemPurpose = "System";
+    constexpr auto HostPurpose = "Host";
+    constexpr auto BmcPurpose = "BMC";
+
+    // TODO: check signature
+
+    {
+        FirmwareLock lock;
+
+#ifdef OPENPOWER_SUPPORT
+        if (purpose == SystemPurpose || purpose == HostPurpose)
+        {
+            utils::tracer::trace_task("Flashing the OpenPOWER firmware",
+                                      [&tmpDir, reset]() {
+                                          // TODO: Flash OpenPOWER firmware
+                                      });
+        }
+#endif
+
+        if (purpose == SystemPurpose || purpose == BmcPurpose)
+        {
+            utils::tracer::trace_task("Flashing the OpenBMC firmware",
+                                      [&tmpDir, reset]() {
+                                          // TODO: Flash OpenBMC firmware
+                                      });
+        }
+    }
+
+    openbmc::reboot(interactive);
 }
 
 /**
