@@ -327,6 +327,31 @@ void flash_firmware(const std::string& firmware_file, bool reset,
                         "System level verification failed!");
                 }
             });
+
+        // Check target machine type
+        auto currentMachine =
+            utils::get_tag_value(OS_RELEASE_FILE, "OPENBMC_TARGET_MACHINE");
+        if (currentMachine.empty())
+        {
+            // We are running on an old BMC version.
+            fprintf(stdout, "WARNING: Current machine name is undefined, "
+                            "the check is skipped.\n");
+        }
+        else
+        {
+            utils::tracer::trace_task(
+                "Check target machine type",
+                [&manifestFile, &currentMachine]() {
+                    auto targetMachine =
+                        utils::get_tag_value(manifestFile, "MachineName");
+                    if (currentMachine != targetMachine)
+                    {
+                        throw std::runtime_error(
+                            "Frimware package is not compatible with this "
+                            "system.");
+                    }
+                });
+        }
     }
 
     {

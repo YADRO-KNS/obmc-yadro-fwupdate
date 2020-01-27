@@ -58,6 +58,8 @@ option('systemd-interface', type: 'string',
        value: 'org.freedesktop.systemd1.Manager',
        description: 'The systemd management interface.')
 
+option('os-release-file', type: 'string', value: '/etc/os-release',
+       description: 'The name of the BMC table of contents file.')
 option('manifest-file-name', type: 'string', value: 'MANIFEST',
        description: 'The name of the MANIFEST file.')
 option('publickey-file-name', type: 'string', value: 'publickey',

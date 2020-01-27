@@ -55,6 +55,7 @@ if openpower_support
     ]
 endif
 
+conf.set_quoted('OS_RELEASE_FILE', get_option('os-release-file'))
 conf.set_quoted('MANIFEST_FILE_NAME', get_option('manifest-file-name'))
 conf.set_quoted('PUBLICKEY_FILE_NAME', get_option('publickey-file-name'))
 conf.set_quoted('HASH_FILE_NAME', get_option('hash-file-name'))
