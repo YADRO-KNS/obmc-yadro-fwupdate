@@ -14,6 +14,7 @@ fwupdate_sources = [
     'utils/confirm.cpp',
     'utils/tags.cpp',
     'utils/tracer.cpp',
+    'utils/signature.cpp',
     'utils/subprocess.cpp',
     'openbmc/firmware.cpp',
 ]
@@ -55,6 +56,10 @@ if openpower_support
 endif
 
 conf.set_quoted('MANIFEST_FILE_NAME', get_option('manifest-file-name'))
+conf.set_quoted('PUBLICKEY_FILE_NAME', get_option('publickey-file-name'))
+conf.set_quoted('HASH_FILE_NAME', get_option('hash-file-name'))
+conf.set_quoted('SIGNED_IMAGE_CONF_PATH', get_option('signed-image-conf-path'))
+conf.set_quoted('SIGNATURE_FILE_EXT', get_option('signature-file-ext'))
 
 configure_file(output: 'config.h', configuration: conf)
 
@@ -63,6 +68,7 @@ executable(
     fwupdate_sources,
     dependencies: [
         dependency('sdbusplus'),
+        dependency('openssl'),
     ],
     install: true,
 )

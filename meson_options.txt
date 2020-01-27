@@ -60,3 +60,11 @@ option('systemd-interface', type: 'string',
 
 option('manifest-file-name', type: 'string', value: 'MANIFEST',
        description: 'The name of the MANIFEST file.')
+option('publickey-file-name', type: 'string', value: 'publickey',
+       description: 'The name of the public key file.')
+option('hash-file-name', type: 'string', value: 'hashfunc',
+       description: 'The name of the hash file.')
+option('signed-image-conf-path', type: 'string', value: '/etc/activationdata',
+       description: 'Path of public key and hash function files.')
+option('signature-file-ext', type: 'string', value: '.sig',
+       description: 'The extension of the Signature file.')

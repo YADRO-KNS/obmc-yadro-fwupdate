@@ -23,6 +23,7 @@
 #include "openbmc/firmware.hpp"
 #include "utils/confirm.hpp"
 #include "utils/dbus.hpp"
+#include "utils/signature.hpp"
 #include "utils/subprocess.hpp"
 #include "utils/tags.hpp"
 #include "utils/tracer.hpp"
@@ -182,6 +183,64 @@ struct RemovablePath : public fs::path
 };
 
 /**
+ * @brief Verify the MANIFEST and publickey file using available public keys
+ *        and hash on the system.
+ *
+ * @param firmwareDir - path to direcotry where the firmware package extracted.
+ *
+ * @return true if signature verification was successful, false otherwise.
+ */
+bool system_level_verify(const fs::path& firmwareDir)
+{
+    auto manifestFile(firmwareDir / MANIFEST_FILE_NAME);
+    auto publicKeyFile(firmwareDir / PUBLICKEY_FILE_NAME);
+
+    if (!fs::exists(manifestFile) || !fs::exists(publicKeyFile))
+    {
+        return false;
+    }
+
+    bool valid = false;
+    try
+    {
+        // Verify the file signature with available public keys and hash
+        // function. For any internal failure during the key/hash pair specific
+        // validation, should continue the validation with next available
+        // key/hash pair.
+        for (const auto& p : fs::directory_iterator(SIGNED_IMAGE_CONF_PATH))
+        {
+            auto publicKey(p.path() / PUBLICKEY_FILE_NAME);
+            auto hashFunc =
+                utils::get_tag_value(p.path() / HASH_FILE_NAME, "HashType");
+
+            try
+            {
+                valid = utils::verify_file(publicKey, hashFunc, manifestFile);
+                if (valid)
+                {
+                    valid =
+                        utils::verify_file(publicKey, hashFunc, publicKeyFile);
+                    if (valid)
+                    {
+                        break;
+                    }
+                }
+            }
+            catch (...)
+            {
+                valid = false;
+            }
+        }
+    }
+    catch (const fs::filesystem_error&)
+    {
+        valid = false;
+    }
+
+    return valid;
+}
+
+/**
  * @brief Flash the firmware files.
  *
  * @param firmware_file   - Path to firmware file.
@@ -258,7 +317,17 @@ void flash_firmware(const std::string& firmware_file, bool reset,
     constexpr auto HostPurpose = "Host";
     constexpr auto BmcPurpose = "BMC";
 
-    // TODO: check signature
+    if (!skip_sign_check)
+    {
+        utils::tracer::trace_task(
+            "Check signature of firmware package", [&tmpDir]() {
+                if (!system_level_verify(tmpDir))
+                {
+                    throw std::runtime_error(
+                        "System level verification failed!");
+                }
+            });
+    }
 
     {
         FirmwareLock lock;
