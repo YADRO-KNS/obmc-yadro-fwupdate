@@ -18,8 +18,13 @@
  * limitations under the License.
  */
 
+#include <filesystem>
+#include <set>
+
 namespace openbmc
 {
+namespace fs = std::filesystem;
+using Files = std::set<fs::path>;
 
 /**
  * @brief Enable BMC reboot guard.
@@ -40,5 +45,14 @@ void reset(void);
  * @brief Reboot the BMC.
  */
 void reboot(bool interactive);
+
+/**
+ * @brief Get the set of required OpenBMC firmware files
+ *
+ * @param dir - Path to the directory where firmware package extracted
+ *
+ * @return Set of required files
+ */
+Files get_fw_files(const fs::path& dir);
 
 } // namespace openbmc

@@ -53,4 +53,13 @@ void reset(void);
  */
 void flash(const Files& firmware, const fs::path& tmpdir = "");
 
+/**
+ * @brief Get the set of required OpenPOWER firmware files
+ *
+ * @param dir - Path to the directory where firmware package extracted
+ *
+ * @return Set of required files
+ */
+Files get_fw_files(const fs::path& dir);
+
 } // namespace openpower

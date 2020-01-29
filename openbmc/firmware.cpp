@@ -86,4 +86,36 @@ void reboot(bool interactive)
     }
 }
 
+Files get_fw_files(const fs::path& dir)
+{
+    Files ret;
+    bool full = false;
+    for (const auto& p : fs::directory_iterator(dir))
+    {
+        if (p.is_regular_file() && p.path().extension() != SIGNATURE_FILE_EXT &&
+            p.path().filename().string().compare(0, 6, "image-") == 0)
+        {
+            if (p.path().filename() == "image-bmc")
+            {
+                full = true;
+            }
+
+            ret.emplace(dir / p.path());
+        }
+    }
+
+    if (ret.empty())
+    {
+        throw std::runtime_error("No OpenBMC firmware files found!");
+    }
+
+    if (full && ret.size() != 1)
+    {
+        throw std::runtime_error(
+            "Firmware package contains overlapped OpenBMC parts!");
+    }
+
+    return ret;
+}
+
 } // namespace openbmc

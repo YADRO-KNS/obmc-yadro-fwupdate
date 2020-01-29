@@ -265,4 +265,23 @@ void flash(const Files& firmware, const fs::path& tmpdir)
     }
 }
 
+Files get_fw_files(const fs::path& dir)
+{
+    Files ret;
+    for (const auto& p : fs::directory_iterator(dir))
+    {
+        if (p.is_regular_file() && p.path().extension() == ".pnor")
+        {
+            ret.emplace(dir / p.path());
+        }
+    }
+
+    if (ret.empty())
+    {
+        throw std::runtime_error("No OpenPOWER firmware files found!");
+    }
+
+    return ret;
+}
+
 } // namespace openpower

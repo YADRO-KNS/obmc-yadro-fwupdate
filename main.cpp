@@ -352,6 +352,43 @@ void flash_firmware(const std::string& firmware_file, bool reset,
                     }
                 });
         }
+
+        auto publickeyFile(tmpDir / PUBLICKEY_FILE_NAME);
+        auto hashFunc = utils::get_tag_value(manifestFile, "HashType");
+
+        if (purpose == SystemPurpose || purpose == BmcPurpose)
+        {
+            utils::tracer::trace_task(
+                "Checking signature of OpenBMC firwmare",
+                [&tmpDir, &publickeyFile, &hashFunc]() {
+                    for (const auto& entry : openbmc::get_fw_files(tmpDir))
+                    {
+                        if (!utils::verify_file(publickeyFile, hashFunc, entry))
+                        {
+                            throw std::runtime_error(utils::concat_string(
+                                "Verification of", entry, "failed!"));
+                        }
+                    }
+                });
+        }
+
+#ifdef OPENPOWER_SUPPORT
+        if (purpose == SystemPurpose || purpose == HostPurpose)
+        {
+            utils::tracer::trace_task(
+                "Checking signature of OpenPOWER firwmare",
+                [&tmpDir, &publickeyFile, &hashFunc]() {
+                    for (const auto& entry : openpower::get_fw_files(tmpDir))
+                    {
+                        if (!utils::verify_file(publickeyFile, hashFunc, entry))
+                        {
+                            throw std::runtime_error(utils::concat_string(
+                                "Verification of", entry, "failed!"));
+                        }
+                    }
+                });
+        }
+#endif
     }
 
     {
