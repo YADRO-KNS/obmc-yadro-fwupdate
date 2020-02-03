@@ -27,6 +27,9 @@
 #include "utils/subprocess.hpp"
 #include "utils/tracer.hpp"
 
+#include <exception>
+#include <functional>
+
 #define ENV_FACTORY_RESET "openbmconce\\x3dfactory\\x2dreset"
 #define SERVICE_FACTORY_RESET                                                  \
     "obmc-flash-bmc-setenv@" ENV_FACTORY_RESET ".service"
@@ -52,6 +55,40 @@ void reset(void)
     utils::tracer::trace_task(
         "Enable the BMC clean",
         std::bind(utils::startUnit, SERVICE_FACTORY_RESET));
+}
+
+void flash(const Files& firmware, bool reset)
+{
+    fs::path initramfs(OPENBMC_FLASH_PATH);
+    for (const auto& entry : firmware)
+    {
+        fprintf(stdout, "Install %s ... ", entry.filename().c_str());
+        fflush(stdout);
+
+        try
+        {
+            fs::path destination(initramfs / entry.filename());
+            if (fs::exists(destination))
+            {
+                fs::remove_all(destination);
+            }
+
+            fs::copy(entry, destination);
+            utils::tracer::done();
+        }
+        catch (...)
+        {
+            utils::tracer::fail();
+            std::rethrow_exception(std::current_exception());
+        }
+    }
+
+    if (reset)
+    {
+        utils::tracer::trace_task("Cleaning whitelist", [&initramfs]() {
+            fs::resize_file(initramfs / OPENBMC_WHITELIST_FILE_NAME, 0);
+        });
+    }
 }
 
 void reboot(bool interactive)

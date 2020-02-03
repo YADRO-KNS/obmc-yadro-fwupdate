@@ -70,3 +70,8 @@ option('signed-image-conf-path', type: 'string', value: '/etc/activationdata',
        description: 'Path of public key and hash function files.')
 option('signature-file-ext', type: 'string', value: '.sig',
        description: 'The extension of the Signature file.')
+
+option('openbmc-flash-path', type: 'string', value: '/run/initramfs',
+       description: 'The path where from the OpenBMC image will be flashed.')
+option('openbmc-whitelist-file-name', type: 'string', value: 'whitelist',
+       description: 'The OpenBMC whilte file name.')

@@ -62,6 +62,10 @@ conf.set_quoted('HASH_FILE_NAME', get_option('hash-file-name'))
 conf.set_quoted('SIGNED_IMAGE_CONF_PATH', get_option('signed-image-conf-path'))
 conf.set_quoted('SIGNATURE_FILE_EXT', get_option('signature-file-ext'))
 
+conf.set_quoted('OPENBMC_FLASH_PATH', get_option('openbmc-flash-path'))
+conf.set_quoted('OPENBMC_WHITELIST_FILE_NAME',
+                get_option('openbmc-whitelist-file-name'))
+
 configure_file(output: 'config.h', configuration: conf)
 
 executable(

@@ -397,19 +397,14 @@ void flash_firmware(const std::string& firmware_file, bool reset,
 #ifdef OPENPOWER_SUPPORT
         if (purpose == SystemPurpose || purpose == HostPurpose)
         {
-            utils::tracer::trace_task("Flashing the OpenPOWER firmware",
-                                      [&tmpDir, reset]() {
-                                          // TODO: Flash OpenPOWER firmware
-                                      });
+            openpower::flash(openpower::get_fw_files(tmpDir),
+                             reset ? "" : tmpDir.string());
         }
 #endif
 
         if (purpose == SystemPurpose || purpose == BmcPurpose)
         {
-            utils::tracer::trace_task("Flashing the OpenBMC firmware",
-                                      [&tmpDir, reset]() {
-                                          // TODO: Flash OpenBMC firmware
-                                      });
+            openbmc::flash(openbmc::get_fw_files(tmpDir), reset);
         }
     }
 

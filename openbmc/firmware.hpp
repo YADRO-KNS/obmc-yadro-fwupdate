@@ -42,6 +42,14 @@ void unlock(void);
 void reset(void);
 
 /**
+ * @brief Put firmware image to the ramfs where from it will be flashed.
+ *
+ * @param firmware  - Path to firmware image.
+ * @param reset     - Flag to clean whitelist.
+ */
+void flash(const Files& firmware, bool reset = false);
+
+/**
  * @brief Reboot the BMC.
  */
 void reboot(bool interactive);
