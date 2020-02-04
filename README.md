@@ -19,6 +19,8 @@ Firmware package MUST contain files:
   key
 
 ## Customization of the update procedure
+**NOTE:** This functional is not implemented yet in new (C++ based) version.
+
 The update procedure can be customized in runtime using special scripts
 placed inside the firmware package:
 * `obmc.update` - tar archive for customizing OpenBMC update procedure;
@@ -44,6 +46,7 @@ Possible exit codes from `preinstall` script:
   completed by the script;
 * Any other values - fail, the update procedure must be stopped.
 Exit codes from `postinstall` are ignored.
+
 
 ## Digital signature
 Digital signature files are created during a build process. Signature is a
