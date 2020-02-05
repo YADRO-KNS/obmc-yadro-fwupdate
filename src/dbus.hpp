@@ -24,7 +24,7 @@
 
 #include <sdbusplus/bus.hpp>
 
-namespace utils
+namespace dbus
 {
 
 using BusName = std::string;
@@ -105,4 +105,4 @@ PropertyType getProperty(const BusName& busname, const Path& path,
     return std::get<PropertyType>(value);
 }
 
-} // namespace utils
+} // namespace dbus

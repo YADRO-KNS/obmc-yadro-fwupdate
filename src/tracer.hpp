@@ -1,5 +1,5 @@
 /**
- * @brief Tags value reader declaration.
+ * @brief Tracer util declarations.
  *
  * This file is part of OpenBMC/OpenPOWER firmware updater.
  *
@@ -20,20 +20,29 @@
 
 #pragma once
 
-#include <string>
+#include <functional>
 
-namespace utils
+namespace tracer
 {
 
-/**
- * @brief Read the file to get the value of the tag.
- *
- * @param filePath - path to file which contains the value of the tag.
- * @param tagName  - the tag name.
- *
- * @return the tag value
- */
-std::string get_tag_value(const std::string& filePath,
-                          const std::string& tagName);
+using Task = std::function<void()>;
 
-} // namespace utils
+/**
+ * @brief Print OK in green color if supported.
+ */
+void done(void);
+
+/**
+ * @brief Print FAIL in red color if supported.
+ */
+void fail(void);
+
+/**
+ * @brief Print task name, execute task and print colorized result.
+ *
+ * @param name - Task name
+ * @param task - Task action
+ */
+void trace_task(const char* name, Task task);
+
+} // namespace tracer

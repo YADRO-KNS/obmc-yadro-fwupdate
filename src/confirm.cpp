@@ -18,15 +18,12 @@
  * limitations under the License.
  */
 
-#include "utils/confirm.hpp"
+#include "confirm.hpp"
 
 #include <cstdio>
 #include <iostream>
 #include <regex>
 #include <string>
-
-namespace utils
-{
 
 const std::regex yesno("^\\s*(y|n|yes|no)(\\s+.*)?$", std::regex::icase);
 
@@ -61,5 +58,3 @@ bool confirm(const char* title, const char* prompt)
 
     return false;
 }
-
-} // namespace utils

@@ -22,9 +22,6 @@
 #include <sstream>
 #include <string>
 
-namespace utils
-{
-
 template <typename... Ts>
 std::string concat_string(Ts const&... ts)
 {
@@ -59,4 +56,3 @@ std::pair<int, std::string> exec(const std::string& cmd, Args const&... args)
 }
 
 } // namespace subprocess
-} // namespace utils

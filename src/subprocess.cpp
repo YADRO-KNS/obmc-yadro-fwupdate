@@ -18,14 +18,12 @@
  * limitations under the License.
  */
 
-#include "utils/subprocess.hpp"
+#include "subprocess.hpp"
 
 #include <array>
 #include <cerrno>
 #include <cstdio>
 
-namespace utils
-{
 namespace subprocess
 {
 
@@ -80,4 +78,3 @@ std::pair<int, std::string> exec(const std::string& cmd)
 }
 
 } // namespace subprocess
-} // namespace utils

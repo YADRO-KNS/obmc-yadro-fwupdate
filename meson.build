@@ -9,14 +9,14 @@ project('fwupdate', 'cpp',
 )
 
 fwupdate_sources = [
-    'main.cpp',
-    'utils/dbus.cpp',
-    'utils/confirm.cpp',
-    'utils/tags.cpp',
-    'utils/tracer.cpp',
-    'utils/signature.cpp',
-    'utils/subprocess.cpp',
-    'openbmc/firmware.cpp',
+    'src/confirm.cpp',
+    'src/dbus.cpp',
+    'src/main.cpp',
+    'src/openbmc.cpp',
+    'src/signature.cpp',
+    'src/subprocess.cpp',
+    'src/tags.cpp',
+    'src/tracer.cpp',
 ]
 
 conf = configuration_data()
@@ -51,7 +51,7 @@ if openpower_support
     conf.set_quoted('PNOR_FILE_EXT', get_option('pnor-file-ext'))
 
     fwupdate_sources += [
-        'openpower/firmware.cpp',
+        'src/openpower.cpp',
     ]
 endif
 

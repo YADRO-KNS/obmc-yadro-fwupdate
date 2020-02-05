@@ -20,15 +20,13 @@
 
 #include "config.h"
 
-#include "utils/tracer.hpp"
+#include "tracer.hpp"
 
 #include <stdio.h>
 #include <unistd.h>
 
 #include <exception>
 
-namespace utils
-{
 namespace tracer
 {
 
@@ -75,4 +73,3 @@ void trace_task(const char* name, Task task)
 }
 
 } // namespace tracer
-} // namespace utils

@@ -1,5 +1,5 @@
 /**
- * @brief Verify signature helpers declarations.
+ * @brief User confirmation tool declaration.
  *
  * This file is part of OpenBMC/OpenPOWER firmware updater.
  *
@@ -20,23 +20,13 @@
 
 #pragma once
 
-#include <string>
-
-namespace utils
-{
-
 /**
- * @brief Verify signature of specified file
+ * @brief Ask user for confirmation.
  *
- * @param keyFile  - path to publickey file
- * @param hashFunc - signature hash function
- * @param filePath - path to the file for verification
- * @param fileSig  - path to the file signature.
- *                   if not specified will be used as filePath + '.sig'
+ * @param title  - message title
+ * @param prompt - prompt message
  *
- * @return true if signature is valid
+ * @return true if user agreed
  */
-bool verify_file(const std::string& keyFile, const std::string& hashFunc,
-                 const std::string& filePath);
-
-} // namespace utils
+bool confirm(const char* title,
+             const char* prompt = "Do you want to continue?");

@@ -20,12 +20,12 @@
 
 #include "config.h"
 
-#include "openbmc/firmware.hpp"
+#include "openbmc.hpp"
 
-#include "utils/confirm.hpp"
-#include "utils/dbus.hpp"
-#include "utils/subprocess.hpp"
-#include "utils/tracer.hpp"
+#include "confirm.hpp"
+#include "dbus.hpp"
+#include "subprocess.hpp"
+#include "tracer.hpp"
 
 #include <exception>
 #include <functional>
@@ -39,22 +39,20 @@ namespace openbmc
 
 void lock(void)
 {
-    utils::tracer::trace_task("Locking BMC reboot",
-                              std::bind(utils::startUnit, REBOOT_GUARD_ENABLE));
+    tracer::trace_task("Locking BMC reboot",
+                       std::bind(dbus::startUnit, REBOOT_GUARD_ENABLE));
 }
 
 void unlock(void)
 {
-    utils::tracer::trace_task(
-        "Unocking BMC reboot",
-        std::bind(utils::startUnit, REBOOT_GUARD_DISABLE));
+    tracer::trace_task("Unocking BMC reboot",
+                       std::bind(dbus::startUnit, REBOOT_GUARD_DISABLE));
 }
 
 void reset(void)
 {
-    utils::tracer::trace_task(
-        "Enable the BMC clean",
-        std::bind(utils::startUnit, SERVICE_FACTORY_RESET));
+    tracer::trace_task("Enable the BMC clean",
+                       std::bind(dbus::startUnit, SERVICE_FACTORY_RESET));
 }
 
 void flash(const Files& firmware, bool reset)
@@ -74,18 +72,18 @@ void flash(const Files& firmware, bool reset)
             }
 
             fs::copy(entry, destination);
-            utils::tracer::done();
+            tracer::done();
         }
         catch (...)
         {
-            utils::tracer::fail();
+            tracer::fail();
             std::rethrow_exception(std::current_exception());
         }
     }
 
     if (reset)
     {
-        utils::tracer::trace_task("Cleaning whitelist", [&initramfs]() {
+        tracer::trace_task("Cleaning whitelist", [&initramfs]() {
             fs::resize_file(initramfs / OPENBMC_WHITELIST_FILE_NAME, 0);
         });
     }
@@ -95,7 +93,7 @@ void reboot(bool interactive)
 {
     bool manual_reboot = false;
     if (interactive &&
-        !utils::confirm("The BMC system will be rebooted to apply changes."))
+        !confirm("The BMC system will be rebooted to apply changes."))
     {
         manual_reboot = true;
     }
@@ -104,11 +102,10 @@ void reboot(bool interactive)
     {
         if (!manual_reboot)
         {
-            utils::tracer::trace_task("Reboot BMC system", []() {
+            tracer::trace_task("Reboot BMC system", []() {
                 int rc;
-                std::tie(rc, std::ignore) =
-                    utils::subprocess::exec("/sbin/reboot");
-                utils::subprocess::check_wait_status(rc);
+                std::tie(rc, std::ignore) = subprocess::exec("/sbin/reboot");
+                subprocess::check_wait_status(rc);
             });
         }
     }

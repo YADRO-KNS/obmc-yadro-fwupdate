@@ -20,11 +20,11 @@
 
 #include "config.h"
 
-#include "openpower/firmware.hpp"
+#include "openpower.hpp"
 
-#include "utils/dbus.hpp"
-#include "utils/subprocess.hpp"
-#include "utils/tracer.hpp"
+#include "dbus.hpp"
+#include "subprocess.hpp"
+#include "tracer.hpp"
 
 #include <filesystem>
 #include <map>
@@ -87,22 +87,22 @@ PartsMap getPartsToClear(const std::string& info)
 // Get partitions that should be cleared
 PartsMap getPartsToClear()
 {
-    const auto& [rc, pflashInfo] = utils::subprocess::exec(
-        PFLASH_CMD, "-i 2>/dev/null | grep ^ID | grep 'F'");
+    const auto& [rc, pflashInfo] =
+        subprocess::exec(PFLASH_CMD, "-i 2>/dev/null | grep ^ID | grep 'F'");
     return getPartsToClear(pflashInfo);
 }
 
 /**
  * @brief Get HIOMPAD bus name.
  */
-static utils::BusName hiomapd(void)
+static dbus::BusName hiomapd(void)
 {
-    static utils::BusName bus;
+    static dbus::BusName bus;
     if (bus.empty())
     {
         try
         {
-            auto objs = utils::getObjects(HIOMAPD_PATH, {HIOMAPD_IFACE});
+            auto objs = dbus::getObjects(HIOMAPD_PATH, {HIOMAPD_IFACE});
             for (auto& obj : objs)
             {
                 bus = std::move(obj.first);
@@ -128,8 +128,8 @@ static utils::BusName hiomapd(void)
  */
 static uint8_t hiomapd_daemon_state(void)
 {
-    return utils::getProperty<uint8_t>(hiomapd(), HIOMAPD_PATH, HIOMAPD_IFACE,
-                                       "DaemonState");
+    return dbus::getProperty<uint8_t>(hiomapd(), HIOMAPD_PATH, HIOMAPD_IFACE,
+                                      "DaemonState");
 }
 
 // True if we've suspended HIOMAPD
@@ -142,9 +142,9 @@ static void hiomapd_suspend(void)
 {
     if (hiomapd_daemon_state() == 0)
     {
-        auto req = utils::bus.new_method_call(hiomapd().c_str(), HIOMAPD_PATH,
-                                              HIOMAPD_IFACE, "Suspend");
-        utils::bus.call(req);
+        auto req = dbus::bus.new_method_call(hiomapd().c_str(), HIOMAPD_PATH,
+                                             HIOMAPD_IFACE, "Suspend");
+        dbus::bus.call(req);
         suspended = true;
     }
     else
@@ -160,22 +160,22 @@ static void hiomapd_resume(void)
 {
     if (suspended)
     {
-        auto req = utils::bus.new_method_call(hiomapd().c_str(), HIOMAPD_PATH,
-                                              HIOMAPD_IFACE, "Resume");
+        auto req = dbus::bus.new_method_call(hiomapd().c_str(), HIOMAPD_PATH,
+                                             HIOMAPD_IFACE, "Resume");
         req.append(true);
-        utils::bus.call(req);
+        dbus::bus.call(req);
         suspended = false;
     }
 }
 
 void lock(void)
 {
-    utils::tracer::trace_task("Suspending HIOMAPD", hiomapd_suspend);
+    tracer::trace_task("Suspending HIOMAPD", hiomapd_suspend);
 }
 
 void unlock(void)
 {
-    utils::tracer::trace_task("Resuming HIOMAPD", hiomapd_resume);
+    tracer::trace_task("Resuming HIOMAPD", hiomapd_resume);
 }
 
 void reset(void)
@@ -193,15 +193,15 @@ void reset(void)
         try
         {
             int rc;
-            std::tie(rc, std::ignore) = utils::subprocess::exec(
-                PFLASH_CMD, "-P", p.first, p.second ? "-c" : "-e",
-                "-f >/dev/null");
-            utils::subprocess::check_wait_status(rc);
-            utils::tracer::done();
+            std::tie(rc, std::ignore) =
+                subprocess::exec(PFLASH_CMD, "-P", p.first,
+                                 p.second ? "-c" : "-e", "-f >/dev/null");
+            subprocess::check_wait_status(rc);
+            tracer::done();
         }
         catch (...)
         {
-            utils::tracer::fail();
+            tracer::fail();
             throw std::runtime_error("Failed to reset PNOR flash.");
         }
     }
@@ -224,11 +224,11 @@ void flash(const Files& firmware, const fs::path& tmpdir)
         nvram /= "nvram.bin";
         try
         {
-            utils::tracer::trace_task("Preserve NVRAM configuration", [&]() {
+            tracer::trace_task("Preserve NVRAM configuration", [&]() {
                 int rc;
                 std::tie(rc, std::ignore) =
-                    utils::subprocess::exec(PFLASH_CMD, "-P NVRAM -r", nvram);
-                utils::subprocess::check_wait_status(rc);
+                    subprocess::exec(PFLASH_CMD, "-P NVRAM -r", nvram);
+                subprocess::check_wait_status(rc);
                 if (!fs::exists(nvram))
                 {
                     throw NVRAMNotCreated();
@@ -249,18 +249,17 @@ void flash(const Files& firmware, const fs::path& tmpdir)
 
         // NOTE: This process may take a lot of time and we want to show the
         //       progress from original pflash output.
-        int rc =
-            system(utils::concat_string(PFLASH_CMD, "-f -E -p", entry).c_str());
-        utils::subprocess::check_wait_status(rc);
+        int rc = system(concat_string(PFLASH_CMD, "-f -E -p", entry).c_str());
+        subprocess::check_wait_status(rc);
     }
 
     if (!nvram.empty() && fs::exists(nvram))
     {
-        utils::tracer::trace_task("Recover NVRAM configuration", [&]() {
+        tracer::trace_task("Recover NVRAM configuration", [&]() {
             int rc;
             std::tie(rc, std::ignore) =
-                utils::subprocess::exec(PFLASH_CMD, "-f -e -P NVRAM -p", nvram);
-            utils::subprocess::check_wait_status(rc);
+                subprocess::exec(PFLASH_CMD, "-f -e -P NVRAM -p", nvram);
+            subprocess::check_wait_status(rc);
         });
     }
 }

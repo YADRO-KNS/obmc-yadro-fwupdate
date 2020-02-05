@@ -20,7 +20,7 @@
 
 #include "config.h"
 
-#include "utils/signature.hpp"
+#include "signature.hpp"
 
 #include <fcntl.h>
 #include <openssl/err.h>
@@ -36,8 +36,6 @@
 #include <filesystem>
 #include <stdexcept>
 
-namespace utils
-{
 namespace fs = std::filesystem;
 
 // RAII support for openssl functions.
@@ -232,5 +230,3 @@ bool verify_file(const std::string& keyFile, const std::string& hashFunc,
 
     return result == 1;
 }
-
-} // namespace utils

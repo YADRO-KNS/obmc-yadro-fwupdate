@@ -18,14 +18,11 @@
  * limitations under the License.
  */
 
-#include "utils/tags.hpp"
+#include "tags.hpp"
 
 #include <fstream>
 #include <regex>
 #include <stdexcept>
-
-namespace utils
-{
 
 const std::regex tagLine("^\\s*([a-z0-9_]+)\\s*=\\s*\"?([^\"]+)\"?\\s*$",
                          std::regex::icase);
@@ -60,5 +57,3 @@ std::string get_tag_value(const std::string& filePath,
 
     return ret;
 }
-
-} // namespace utils

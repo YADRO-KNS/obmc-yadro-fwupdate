@@ -20,9 +20,9 @@
 
 #include "config.h"
 
-#include "utils/dbus.hpp"
+#include "dbus.hpp"
 
-namespace utils
+namespace dbus
 {
 
 sdbusplus::bus::bus bus = sdbusplus::bus::new_default();
@@ -78,4 +78,4 @@ bool startUnit(const std::string& unitname)
     return true;
 }
 
-} // namespace utils
+} // namespace dbus

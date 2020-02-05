@@ -18,6 +18,7 @@ __pycache__
 *.i
 *.o
 *.s
+.clang
 
 # Libtool
 *.la
@@ -63,4 +64,3 @@ build*
 GPATH
 GRTAGS
 GTAGS
-

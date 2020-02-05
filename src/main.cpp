@@ -20,16 +20,16 @@
 
 #include "config.h"
 
-#include "openbmc/firmware.hpp"
-#include "utils/confirm.hpp"
-#include "utils/dbus.hpp"
-#include "utils/signature.hpp"
-#include "utils/subprocess.hpp"
-#include "utils/tags.hpp"
-#include "utils/tracer.hpp"
+#include "confirm.hpp"
+#include "dbus.hpp"
+#include "openbmc.hpp"
+#include "signature.hpp"
+#include "subprocess.hpp"
+#include "tags.hpp"
+#include "tracer.hpp"
 
 #ifdef OPENPOWER_SUPPORT
-#include "openpower/firmware.hpp"
+#include "openpower.hpp"
 #endif
 
 #include <getopt.h>
@@ -47,12 +47,12 @@ namespace fs = std::filesystem;
  */
 static void show_version()
 {
-    auto tree = utils::getSubTree(SOFTWARE_OBJPATH, {ACTIVATION_IFACE});
+    auto tree = dbus::getSubTree(SOFTWARE_OBJPATH, {ACTIVATION_IFACE});
     for (auto& tree_entry : tree)
     {
         for (auto& bus_entry : tree_entry.second)
         {
-            auto activation = utils::getProperty<std::string>(
+            auto activation = dbus::getProperty<std::string>(
                 bus_entry.first, tree_entry.first, ACTIVATION_IFACE,
                 "Activation");
             if (activation != ACTIVATION_IFACE ".Activations.Active")
@@ -60,9 +60,9 @@ static void show_version()
                 continue;
             }
 
-            auto purpose = utils::getProperty<std::string>(
+            auto purpose = dbus::getProperty<std::string>(
                 bus_entry.first, tree_entry.first, VERSION_IFACE, "Purpose");
-            auto version = utils::getProperty<std::string>(
+            auto version = dbus::getProperty<std::string>(
                 bus_entry.first, tree_entry.first, VERSION_IFACE, "Version");
 
             printf("%-6s  %s   [ID=%s]\n",
@@ -71,7 +71,7 @@ static void show_version()
 
             try
             {
-                auto ext_version = utils::getProperty<std::string>(
+                auto ext_version = dbus::getProperty<std::string>(
                     bus_entry.first, tree_entry.first, EXTENDED_VERSION_IFACE,
                     "ExtendedVersion");
                 size_t begin = 0;
@@ -140,7 +140,7 @@ void reset_firmware(bool interactive)
         "WARNING: "
         "All settings will be resotred to manufacturing default values.";
 
-    if (interactive && !utils::confirm(LOST_DATA_WARN))
+    if (interactive && !confirm(LOST_DATA_WARN))
     {
         return;
     }
@@ -211,15 +211,14 @@ bool system_level_verify(const fs::path& firmwareDir)
         {
             auto publicKey(p.path() / PUBLICKEY_FILE_NAME);
             auto hashFunc =
-                utils::get_tag_value(p.path() / HASH_FILE_NAME, "HashType");
+                get_tag_value(p.path() / HASH_FILE_NAME, "HashType");
 
             try
             {
-                valid = utils::verify_file(publicKey, hashFunc, manifestFile);
+                valid = verify_file(publicKey, hashFunc, manifestFile);
                 if (valid)
                 {
-                    valid =
-                        utils::verify_file(publicKey, hashFunc, publicKeyFile);
+                    valid = verify_file(publicKey, hashFunc, publicKeyFile);
                     if (valid)
                     {
                         break;
@@ -269,14 +268,14 @@ void flash_firmware(const std::string& firmware_file, bool reset,
 
         title += "Please do not turn off the system during update!";
 
-        if (!utils::confirm(title.c_str()))
+        if (!confirm(title.c_str()))
         {
             return;
         }
     }
 
     RemovablePath tmpDir;
-    utils::tracer::trace_task("Prepare temporary directory", [&tmpDir]() {
+    tracer::trace_task("Prepare temporary directory", [&tmpDir]() {
         std::string dir = fs::temp_directory_path() / "fwupdateXXXXXX";
         if (!mkdtemp(dir.data()))
         {
@@ -296,11 +295,11 @@ void flash_firmware(const std::string& firmware_file, bool reset,
     }
 #endif
 
-    utils::tracer::trace_task("Unpack firmware package", [fn, &tmpDir]() {
+    tracer::trace_task("Unpack firmware package", [fn, &tmpDir]() {
         int rc;
-        std::tie(rc, std::ignore) = utils::subprocess::exec(
-            "tar -xzf", fn, "-C", tmpDir, " 2>/dev/null");
-        utils::subprocess::check_wait_status(rc);
+        std::tie(rc, std::ignore) =
+            subprocess::exec("tar -xzf", fn, "-C", tmpDir, " 2>/dev/null");
+        subprocess::check_wait_status(rc);
     });
 
     auto manifestFile(tmpDir / MANIFEST_FILE_NAME);
@@ -309,7 +308,7 @@ void flash_firmware(const std::string& firmware_file, bool reset,
         throw std::runtime_error("No MANIFEST file found!");
     }
 
-    auto purpose = utils::get_tag_value(manifestFile, "purpose");
+    auto purpose = get_tag_value(manifestFile, "purpose");
     // Cut off `xyz.openbmc_poroject.Software.Version.VersionPurpose.`
     purpose = purpose.substr(purpose.rfind('.') + 1);
 
@@ -319,18 +318,16 @@ void flash_firmware(const std::string& firmware_file, bool reset,
 
     if (!skip_sign_check)
     {
-        utils::tracer::trace_task(
-            "Check signature of firmware package", [&tmpDir]() {
-                if (!system_level_verify(tmpDir))
-                {
-                    throw std::runtime_error(
-                        "System level verification failed!");
-                }
-            });
+        tracer::trace_task("Check signature of firmware package", [&tmpDir]() {
+            if (!system_level_verify(tmpDir))
+            {
+                throw std::runtime_error("System level verification failed!");
+            }
+        });
 
         // Check target machine type
         auto currentMachine =
-            utils::get_tag_value(OS_RELEASE_FILE, "OPENBMC_TARGET_MACHINE");
+            get_tag_value(OS_RELEASE_FILE, "OPENBMC_TARGET_MACHINE");
         if (currentMachine.empty())
         {
             // We are running on an old BMC version.
@@ -339,11 +336,11 @@ void flash_firmware(const std::string& firmware_file, bool reset,
         }
         else
         {
-            utils::tracer::trace_task(
+            tracer::trace_task(
                 "Check target machine type",
                 [&manifestFile, &currentMachine]() {
                     auto targetMachine =
-                        utils::get_tag_value(manifestFile, "MachineName");
+                        get_tag_value(manifestFile, "MachineName");
                     if (currentMachine != targetMachine)
                     {
                         throw std::runtime_error(
@@ -354,18 +351,18 @@ void flash_firmware(const std::string& firmware_file, bool reset,
         }
 
         auto publickeyFile(tmpDir / PUBLICKEY_FILE_NAME);
-        auto hashFunc = utils::get_tag_value(manifestFile, "HashType");
+        auto hashFunc = get_tag_value(manifestFile, "HashType");
 
         if (purpose == SystemPurpose || purpose == BmcPurpose)
         {
-            utils::tracer::trace_task(
+            tracer::trace_task(
                 "Checking signature of OpenBMC firwmare",
                 [&tmpDir, &publickeyFile, &hashFunc]() {
                     for (const auto& entry : openbmc::get_fw_files(tmpDir))
                     {
-                        if (!utils::verify_file(publickeyFile, hashFunc, entry))
+                        if (!verify_file(publickeyFile, hashFunc, entry))
                         {
-                            throw std::runtime_error(utils::concat_string(
+                            throw std::runtime_error(concat_string(
                                 "Verification of", entry, "failed!"));
                         }
                     }
@@ -375,14 +372,14 @@ void flash_firmware(const std::string& firmware_file, bool reset,
 #ifdef OPENPOWER_SUPPORT
         if (purpose == SystemPurpose || purpose == HostPurpose)
         {
-            utils::tracer::trace_task(
+            tracer::trace_task(
                 "Checking signature of OpenPOWER firwmare",
                 [&tmpDir, &publickeyFile, &hashFunc]() {
                     for (const auto& entry : openpower::get_fw_files(tmpDir))
                     {
-                        if (!utils::verify_file(publickeyFile, hashFunc, entry))
+                        if (!verify_file(publickeyFile, hashFunc, entry))
                         {
-                            throw std::runtime_error(utils::concat_string(
+                            throw std::runtime_error(concat_string(
                                 "Verification of", entry, "failed!"));
                         }
                     }
