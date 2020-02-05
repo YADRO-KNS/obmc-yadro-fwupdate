@@ -25,7 +25,7 @@
 #include <regex>
 #include <string>
 
-const std::regex yesno("^\\s*(y|n|yes|no)(\\s+.*)?$", std::regex::icase);
+static const std::regex yesno("^\\s*(y|n|yes|no)(\\s+.*)?$", std::regex::icase);
 
 bool confirm(const char* title, const char* prompt)
 {
@@ -44,7 +44,7 @@ bool confirm(const char* title, const char* prompt)
                 break;
             }
 
-            if (std::regex_match(answer, match, yesno) && 3 == match.size())
+            if (std::regex_match(answer, match, yesno))
             {
                 const auto& c = match[1].str()[0];
                 return (c == 'y' || c == 'Y');

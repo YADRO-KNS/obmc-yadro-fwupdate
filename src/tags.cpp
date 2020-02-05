@@ -24,8 +24,8 @@
 #include <regex>
 #include <stdexcept>
 
-const std::regex tagLine("^\\s*([a-z0-9_]+)\\s*=\\s*\"?([^\"]+)\"?\\s*$",
-                         std::regex::icase);
+static const std::regex tagLine("^\\s*([a-z0-9_]+)\\s*=\\s*\"?([^\"]+)\"?\\s*$",
+                                std::regex::icase);
 
 std::string get_tag_value(const std::string& filePath,
                           const std::string& tagName)
