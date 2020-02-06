@@ -84,11 +84,7 @@ void reboot(bool interactive)
         if (!manual_reboot)
         {
             Tracer tracer("Reboot BMC system");
-
-            int rc;
-            std::tie(rc, std::ignore) = subprocess::exec("/sbin/reboot");
-            subprocess::check_wait_status(rc);
-
+            std::ignore = subprocess::exec("/sbin/reboot");
             tracer.done();
         }
     }

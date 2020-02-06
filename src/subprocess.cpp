@@ -10,6 +10,7 @@
 #include <array>
 #include <cerrno>
 #include <cstring>
+#include <sstream>
 
 namespace subprocess
 {
@@ -33,9 +34,9 @@ void check_wait_status(int wstatus)
     }
 }
 
-std::pair<int, std::string> exec(const std::string& cmd)
+std::string exec(const char* cmd)
 {
-    FILE* pipe = popen(cmd.c_str(), "r");
+    FILE* pipe = popen(cmd, "r");
     if (!pipe)
     {
         throw FwupdateError("popen() failed, error=%d: %s", errno,
@@ -56,7 +57,9 @@ std::pair<int, std::string> exec(const std::string& cmd)
                             strerror(errno));
     }
 
-    return {rc, result.str()};
+    check_wait_status(rc);
+
+    return result.str();
 }
 
 } // namespace subprocess

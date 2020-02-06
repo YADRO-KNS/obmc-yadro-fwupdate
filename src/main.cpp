@@ -289,11 +289,8 @@ void flash_firmware(const std::string& firmware_file, bool reset,
 
     {
         Tracer tracer("Unpack firmware package");
-
-        int rc;
-        std::tie(rc, std::ignore) =
-            subprocess::exec("tar -xzf", fn, "-C", tmpDir, " 2>/dev/null");
-        subprocess::check_wait_status(rc);
+        std::ignore = subprocess::exec("tar -xzf %s -C %s 2>/dev/null",
+                                       fn.c_str(), tmpDir.c_str());
         tracer.done();
     }
 

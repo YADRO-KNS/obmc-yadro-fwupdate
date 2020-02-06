@@ -73,9 +73,8 @@ PartsMap getPartsToClear(const std::string& info)
 // Get partitions that should be cleared
 PartsMap getPartsToClear()
 {
-    const auto& [rc, pflashInfo] =
-        subprocess::exec(PFLASH_CMD, "-i 2>/dev/null | grep ^ID | grep 'F'");
-    return getPartsToClear(pflashInfo);
+    return getPartsToClear(subprocess::exec(
+        "%s -i 2>/dev/null | grep ^ID | grep 'F'", PFLASH_CMD));
 }
 
 /**
@@ -170,13 +169,9 @@ void reset(void)
         {
             Tracer tracer("Clear %s partition [%s]", p.first.c_str(),
                           p.second ? "ECC" : "Erase");
-
-            int rc;
-            std::tie(rc, std::ignore) =
-                subprocess::exec(PFLASH_CMD, "-P", p.first,
-                                 p.second ? "-c" : "-e", "-f >/dev/null");
-            subprocess::check_wait_status(rc);
-
+            std::ignore =
+                subprocess::exec("%s -P %s -%c -f &>/dev/null", PFLASH_CMD,
+                                 p.first.c_str(), p.second ? 'c' : 'e');
             tracer.done();
         }
     }
@@ -195,10 +190,8 @@ void flash(const Files& firmware, const fs::path& tmpdir)
         Tracer tracer("Preserve NVRAM configuration");
 
         nvram /= "nvram.bin";
-        int rc;
-        std::tie(rc, std::ignore) =
-            subprocess::exec(PFLASH_CMD, "-P NVRAM -r", nvram);
-        subprocess::check_wait_status(rc);
+        std::ignore = subprocess::exec("%s -P NVRAM -r %s &>/dev/null",
+                                       PFLASH_CMD, nvram.c_str());
 
         if (!fs::exists(nvram))
         {
@@ -219,19 +212,16 @@ void flash(const Files& firmware, const fs::path& tmpdir)
 
         // NOTE: This process may take a lot of time and we want to show the
         //       progress from original pflash output.
-        int rc = system(concat_string(PFLASH_CMD, "-f -E -p", entry).c_str());
+        int rc =
+            system(strfmt("%s -f -E -p %s", PFLASH_CMD, entry.c_str()).c_str());
         subprocess::check_wait_status(rc);
     }
 
     if (!nvram.empty() && fs::exists(nvram))
     {
         Tracer tracer("Recover NVRAM configuration");
-
-        int rc;
-        std::tie(rc, std::ignore) =
-            subprocess::exec(PFLASH_CMD, "-f -e -P NVRAM -p", nvram);
-        subprocess::check_wait_status(rc);
-
+        std::ignore = subprocess::exec("%s -f -e -P NVRAM -p %s", PFLASH_CMD,
+                                       nvram.c_str());
         tracer.done();
     }
 }

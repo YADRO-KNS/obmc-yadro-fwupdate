@@ -4,40 +4,32 @@
  */
 
 #pragma once
-#include <sstream>
-#include <string>
 
-template <typename... Ts>
-std::string concat_string(Ts const&... ts)
-{
-    std::stringstream s;
-    ((s << ts << " "), ...);
-    return s.str();
-}
+#include "strfmt.hpp"
 
 namespace subprocess
 {
 
 /**
- * @brief Check wait status.
+ * @brief Check wait status and throw exception if child failed.
  *
  * @param wstatus - status returned by pclose()/system()/waitpid().
  */
 void check_wait_status(int wstatus);
 
 /**
- * @brief Execute the external command
+ * @brief Execute the external command.
  *
  * @param cmd - Command and its arguments
  *
- * @return wait statue and command output
+ * @return command output
  */
-std::pair<int, std::string> exec(const std::string& cmd);
+std::string exec(const char* cmd);
 
 template <typename... Args>
-std::pair<int, std::string> exec(const std::string& cmd, Args const&... args)
+std::string exec(const char* fmt, Args&&... args)
 {
-    return exec(concat_string(cmd, args...));
+    return exec(strfmt(fmt, std::forward<Args>(args)...).c_str());
 }
 
 } // namespace subprocess
