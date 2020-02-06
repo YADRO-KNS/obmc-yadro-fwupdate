@@ -23,14 +23,14 @@
 namespace openbmc
 {
 
-void lock(void)
+Lock::Lock()
 {
     Tracer tracer("Locking BMC reboot");
     dbus::startUnit(REBOOT_GUARD_ENABLE);
     tracer.done();
 }
 
-void unlock(void)
+Lock::~Lock()
 {
     Tracer tracer("Unocking BMC reboot");
     dbus::startUnit(REBOOT_GUARD_DISABLE);

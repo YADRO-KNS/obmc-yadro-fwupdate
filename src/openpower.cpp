@@ -104,7 +104,7 @@ static uint8_t hiomapd_daemon_state(void)
 // True if we've suspended HIOMAPD
 static bool suspended = false;
 
-void lock(void)
+Lock::Lock()
 {
     Tracer tracer("Suspending HIOMAPD");
 
@@ -123,7 +123,7 @@ void lock(void)
     tracer.done();
 }
 
-void unlock(void)
+Lock::~Lock()
 {
     Tracer tracer("Resuming HIOMAPD");
 

@@ -87,33 +87,16 @@ static void show_version()
 
 struct FirmwareLock
 {
-    FirmwareLock()
-    {
-        openbmc::lock();
-
-        try
-        {
-#ifdef OPENPOWER_SUPPORT
-            openpower::lock();
-#endif
-        }
-        catch (...)
-        {
-            openbmc::unlock();
-            std::rethrow_exception(std::current_exception());
-        }
-    }
-
-    ~FirmwareLock()
-    {
-#ifdef OPENPOWER_SUPPORT
-        openpower::unlock();
-#endif
-        openbmc::unlock();
-    }
-
+    FirmwareLock() = default;
+    ~FirmwareLock() = default;
     FirmwareLock(const FirmwareLock&) = delete;
     FirmwareLock& operator=(const FirmwareLock&) = delete;
+
+  private:
+    openbmc::Lock openbmc_lock;
+#ifdef OPENPOWER_SUPPORT
+    openpower::Lock openpower_lock;
+#endif
 };
 
 /**

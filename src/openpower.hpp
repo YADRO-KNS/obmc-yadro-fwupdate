@@ -14,14 +14,16 @@ namespace fs = std::filesystem;
 using Files = std::set<fs::path>;
 
 /**
- * @brief Lock access to PNOR flash drive.
+ * @brief RAII wrapper for locking access to PNOR flash drive.
  */
-void lock(void);
+struct Lock
+{
+    Lock(const Lock&) = delete;
+    Lock& operator=(const Lock&) = delete;
 
-/**
- * @brief Unlock access to PNOR flash drive.
- */
-void unlock(void);
+    Lock();
+    ~Lock();
+};
 
 /**
  * @brief Clear PNOR partitions on the flash device.

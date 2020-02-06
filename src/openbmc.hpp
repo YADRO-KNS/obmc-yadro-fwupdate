@@ -12,14 +12,16 @@ namespace fs = std::filesystem;
 using Files = std::set<fs::path>;
 
 /**
- * @brief Enable BMC reboot guard.
+ * @brief RAII wrapper for locking BMC reboot.
  */
-void lock(void);
+struct Lock
+{
+    Lock(const Lock&) = delete;
+    Lock& operator=(const Lock&) = delete;
 
-/**
- * @brief Disable BMC reboot guard.
- */
-void unlock(void);
+    Lock();
+    ~Lock();
+};
 
 /**
  * @brief Clear RW partition.
