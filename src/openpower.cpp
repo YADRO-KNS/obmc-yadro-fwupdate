@@ -8,6 +8,7 @@
 #include "openpower.hpp"
 
 #include "dbus.hpp"
+#include "fwupderr.hpp"
 #include "subprocess.hpp"
 #include "tracer.hpp"
 
@@ -101,7 +102,7 @@ static dbus::BusName hiomapd(void)
 
         if (bus.empty())
         {
-            throw std::runtime_error("No hiomapd service found");
+            throw FwupdateError("No hiomapd service found");
         }
     }
 
@@ -134,7 +135,7 @@ static void hiomapd_suspend(void)
     }
     else
     {
-        throw std::runtime_error("HIOMAPD already suspended");
+        throw FwupdateError("HIOMAPD already suspended");
     }
 }
 
@@ -187,7 +188,7 @@ void reset(void)
         catch (...)
         {
             tracer::fail();
-            throw std::runtime_error("Failed to reset PNOR flash.");
+            throw FwupdateError("Failed to reset PNOR flash.");
         }
     }
 }
@@ -262,7 +263,7 @@ Files get_fw_files(const fs::path& dir)
 
     if (ret.empty())
     {
-        throw std::runtime_error("No OpenPOWER firmware files found!");
+        throw FwupdateError("No OpenPOWER firmware files found!");
     }
 
     return ret;

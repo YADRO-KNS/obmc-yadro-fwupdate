@@ -7,6 +7,7 @@
 
 #include "confirm.hpp"
 #include "dbus.hpp"
+#include "fwupderr.hpp"
 #include "openbmc.hpp"
 #include "signature.hpp"
 #include "subprocess.hpp"
@@ -19,8 +20,10 @@
 
 #include <getopt.h>
 
+#include <cerrno>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <filesystem>
 #include <stdexcept>
 #include <string>
@@ -238,7 +241,7 @@ void flash_firmware(const std::string& firmware_file, bool reset,
     fs::path fn(firmware_file);
     if (!fs::exists(fn))
     {
-        throw std::runtime_error("Firmware package not found!");
+        throw FwupdateError("Firmware package not found!");
     }
 
     if (interactive)
@@ -264,7 +267,8 @@ void flash_firmware(const std::string& firmware_file, bool reset,
         std::string dir = fs::temp_directory_path() / "fwupdateXXXXXX";
         if (!mkdtemp(dir.data()))
         {
-            throw std::system_error(errno, std::generic_category());
+            throw FwupdateError("mkdtemp() failed, error=%d: %s", errno,
+                                strerror(errno));
         }
 
         tmpDir = dir;
@@ -290,7 +294,7 @@ void flash_firmware(const std::string& firmware_file, bool reset,
     auto manifestFile(tmpDir / MANIFEST_FILE_NAME);
     if (!fs::exists(manifestFile))
     {
-        throw std::runtime_error("No MANIFEST file found!");
+        throw FwupdateError("No MANIFEST file found!");
     }
 
     auto purpose = get_tag_value(manifestFile, "purpose");
@@ -306,7 +310,7 @@ void flash_firmware(const std::string& firmware_file, bool reset,
         tracer::trace_task("Check signature of firmware package", [&tmpDir]() {
             if (!system_level_verify(tmpDir))
             {
-                throw std::runtime_error("System level verification failed!");
+                throw FwupdateError("System level verification failed!");
             }
         });
 
@@ -328,7 +332,7 @@ void flash_firmware(const std::string& firmware_file, bool reset,
                         get_tag_value(manifestFile, "MachineName");
                     if (currentMachine != targetMachine)
                     {
-                        throw std::runtime_error(
+                        throw FwupdateError(
                             "Frimware package is not compatible with this "
                             "system.");
                     }
@@ -347,8 +351,8 @@ void flash_firmware(const std::string& firmware_file, bool reset,
                     {
                         if (!verify_file(publickeyFile, hashFunc, entry))
                         {
-                            throw std::runtime_error(concat_string(
-                                "Verification of", entry, "failed!"));
+                            throw FwupdateError("Verification of %s failed!",
+                                                entry.filename().c_str());
                         }
                     }
                 });
@@ -364,8 +368,8 @@ void flash_firmware(const std::string& firmware_file, bool reset,
                     {
                         if (!verify_file(publickeyFile, hashFunc, entry))
                         {
-                            throw std::runtime_error(concat_string(
-                                "Verification of", entry, "failed!"));
+                            throw FwupdateError("Verification of %s failed!",
+                                                entry.filename().c_str());
                         }
                     }
                 });
@@ -498,8 +502,9 @@ int main(int argc, char* argv[])
         }
         else
         {
-            throw std::runtime_error(
-                "One or both of --file/--reset options must be specified!");
+            fprintf(stderr, "One or both of --file/--reset "
+                            "options must be specified!\n");
+            return EXIT_FAILURE;
         }
     }
     catch (const std::exception& err)

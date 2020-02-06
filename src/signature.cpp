@@ -7,6 +7,8 @@
 
 #include "signature.hpp"
 
+#include "fwupderr.hpp"
+
 #include <fcntl.h>
 #include <openssl/err.h>
 #include <openssl/evp.h>
@@ -16,10 +18,8 @@
 #include <unistd.h>
 
 #include <cerrno>
-#include <cstdarg>
 #include <cstring>
 #include <filesystem>
-#include <stdexcept>
 
 namespace fs = std::filesystem;
 
@@ -28,35 +28,6 @@ using BIO_MEM_Ptr = std::unique_ptr<BIO, decltype(&::BIO_free)>;
 using EVP_PKEY_Ptr = std::unique_ptr<EVP_PKEY, decltype(&::EVP_PKEY_free)>;
 using EVP_MD_CTX_Ptr =
     std::unique_ptr<EVP_MD_CTX, decltype(&::EVP_MD_CTX_free)>;
-
-/**
- * @brief Make string from format like in printf.
- *
- * @param fmt - format string
- * @param ... - optional arguments
- *
- * @return formatted string
- */
-std::string format(const char* fmt, ...)
-{
-    va_list ap;
-
-    va_start(ap, fmt);
-    auto size = vsnprintf(nullptr, 0, fmt, ap);
-    va_end(ap);
-
-    if (size <= 0)
-    {
-        return {};
-    }
-
-    std::string ret(size + 1, '\0');
-    va_start(ap, fmt);
-    vsnprintf(ret.data(), ret.size(), fmt, ap);
-    va_end(ap);
-
-    return ret;
-}
 
 /**
  * @brief RAII wrapper for memory mapped file.
@@ -102,8 +73,8 @@ struct MappedMem
         int fd = ::open(filePath.c_str(), O_RDONLY);
         if (fd == -1)
         {
-            throw std::runtime_error(format("open %s failed, %s",
-                                            filePath.c_str(), strerror(errno)));
+            throw FwupdateError("open %s failed, error=%d: %s",
+                                filePath.c_str(), errno, strerror(errno));
         }
 
         auto size = fs::file_size(filePath);
@@ -113,9 +84,9 @@ struct MappedMem
 
         if (addr == MAP_FAILED)
         {
-            throw std::runtime_error(format("mmap for %s failed, %s",
-                                            filePath.c_str(),
-                                            strerror(mmap_errno)));
+            throw FwupdateError("mmap for %s failed, error=%d: %s",
+                                filePath.c_str(), mmap_errno,
+                                strerror(mmap_errno));
         }
 
         return MappedMem(addr, size);
@@ -139,7 +110,7 @@ RSA* createPublicRSA(const std::string& publicKey)
     BIO_MEM_Ptr keyBio(BIO_new_mem_buf(data.get(), data.size()), &::BIO_free);
     if (keyBio.get() == nullptr)
     {
-        throw std::runtime_error("Failed to create new BIO Memory buffer.");
+        throw FwupdateError("Failed to create new BIO Memory buffer.");
     }
 
     // NOTE: Return value should be freed with RSA_free or
@@ -155,14 +126,14 @@ bool verify_file(const std::string& keyFile, const std::string& hashFunc,
     // Check existence of the files in the system.
     if (!fs::exists(filePath) || !fs::exists(fileSig))
     {
-        throw std::runtime_error("Failed to find the Data or signature file.");
+        throw FwupdateError("Failed to find the Data or signature file.");
     }
 
     // Create RSA
     auto publicRSA = createPublicRSA(keyFile);
     if (publicRSA == nullptr)
     {
-        throw std::runtime_error("Failed to create RSA.");
+        throw FwupdateError("Failed to create RSA.");
     }
 
     // Assign key to RSA.
@@ -180,16 +151,15 @@ bool verify_file(const std::string& keyFile, const std::string& hashFunc,
     auto hashStruct = EVP_get_digestbyname(hashFunc.c_str());
     if (!hashStruct)
     {
-        throw std::runtime_error(
-            "EVP_get_digestbyname: Unknown message digest.");
+        throw FwupdateError("EVP_get_digestbyname: Unknown message digest.");
     }
 
     auto result = EVP_DigestVerifyInit(rsaVerifyCtx.get(), nullptr, hashStruct,
                                        nullptr, pKeyPtr.get());
     if (result != 1)
     {
-        throw std::runtime_error(format(
-            "Error %lu occured during EVP_DigestVerifyInit.", ERR_get_error()));
+        throw FwupdateError("Error %lu occured during EVP_DigestVerifyInit.",
+                            ERR_get_error());
     }
 
     auto data = MappedMem::open(filePath);
@@ -197,9 +167,8 @@ bool verify_file(const std::string& keyFile, const std::string& hashFunc,
         EVP_DigestVerifyUpdate(rsaVerifyCtx.get(), data.get(), data.size());
     if (result != 1)
     {
-        throw std::runtime_error(
-            format("Error %lu occured during EVP_DigestVerifyUpdate.",
-                   ERR_get_error()));
+        throw FwupdateError("Error %lu occured during EVP_DigestVerifyUpdate.",
+                            ERR_get_error());
     }
 
     auto signature = MappedMem::open(fileSig);
@@ -208,9 +177,8 @@ bool verify_file(const std::string& keyFile, const std::string& hashFunc,
         signature.size());
     if (result == -1)
     {
-        throw std::runtime_error(
-            format("Error %lu occured during EVP_DigestVerifyFinal.",
-                   ERR_get_error()));
+        throw FwupdateError("Error %lu occured during EVP_DigestVerifyFinal.",
+                            ERR_get_error());
     }
 
     return result == 1;

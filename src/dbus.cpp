@@ -22,9 +22,9 @@ Objects getObjects(const Path& path, const Interfaces& ifaces)
     {
         bus.call(mapper).read(objects);
     }
-    catch (const sdbusplus::exception::SdBusError&)
+    catch (const sdbusplus::exception::SdBusError& e)
     {
-        throw std::runtime_error("Mapper GetObject call failed");
+        throw FwupdateError("Mapper GetObject call failed: %s", e.what());
     }
     return objects;
 }
@@ -39,9 +39,9 @@ ObjectsMap getSubTree(const Path& path, const Interfaces& ifaces, int32_t depth)
     {
         bus.call(mapper).read(objects);
     }
-    catch (const sdbusplus::exception::SdBusError&)
+    catch (const sdbusplus::exception::SdBusError& e)
     {
-        throw std::runtime_error("Mapper GetSubTree call failed");
+        throw FwupdateError("Mapper GetSubTree call failed: %s", e.what());
     }
     return objects;
 }

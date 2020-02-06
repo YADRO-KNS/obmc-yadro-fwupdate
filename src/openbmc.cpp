@@ -9,6 +9,7 @@
 
 #include "confirm.hpp"
 #include "dbus.hpp"
+#include "fwupderr.hpp"
 #include "subprocess.hpp"
 #include "tracer.hpp"
 
@@ -101,7 +102,7 @@ void reboot(bool interactive)
 
     if (manual_reboot)
     {
-        throw std::runtime_error("The BMC needs to be manually rebooted.");
+        throw FwupdateError("The BMC needs to be manually rebooted.");
     }
 }
 
@@ -125,12 +126,12 @@ Files get_fw_files(const fs::path& dir)
 
     if (ret.empty())
     {
-        throw std::runtime_error("No OpenBMC firmware files found!");
+        throw FwupdateError("No OpenBMC firmware files found!");
     }
 
     if (full && ret.size() != 1)
     {
-        throw std::runtime_error(
+        throw FwupdateError(
             "Firmware package contains overlapped OpenBMC parts!");
     }
 

@@ -5,36 +5,31 @@
 
 #include "subprocess.hpp"
 
+#include "fwupderr.hpp"
+
 #include <array>
 #include <cerrno>
-#include <cstdio>
+#include <cstring>
 
 namespace subprocess
 {
 
 void check_wait_status(int wstatus)
 {
-    std::string buf(32, '\0');
-
     if (WIFSIGNALED(wstatus))
     {
-        snprintf(buf.data(), buf.size(), "killed by signal %d",
-                 WTERMSIG(wstatus));
-        throw std::runtime_error(buf);
+        throw FwupdateError("killed by signal %d.", WTERMSIG(wstatus));
     }
 
     if (!WIFEXITED(wstatus))
     {
-        snprintf(buf.data(), buf.size(), "unknown wait status: 0x%08X",
-                 wstatus);
-        throw std::runtime_error(buf);
+        throw FwupdateError("unknown wait status: 0x%08X", wstatus);
     }
 
     int rc = WEXITSTATUS(wstatus);
     if (rc != EXIT_SUCCESS)
     {
-        snprintf(buf.data(), buf.size(), "Exit with status %d", rc);
-        throw std::runtime_error(buf);
+        throw FwupdateError("exited with status %d", rc);
     }
 }
 
@@ -43,7 +38,8 @@ std::pair<int, std::string> exec(const std::string& cmd)
     FILE* pipe = popen(cmd.c_str(), "r");
     if (!pipe)
     {
-        throw std::system_error(errno, std::generic_category());
+        throw FwupdateError("popen() failed, error=%d: %s", errno,
+                            strerror(errno));
     }
 
     std::array<char, 512> buffer;
@@ -56,7 +52,8 @@ std::pair<int, std::string> exec(const std::string& cmd)
     int rc = pclose(pipe);
     if (rc == -1)
     {
-        throw std::system_error(errno, std::generic_category());
+        throw FwupdateError("pclose() failed, error=%d: %s", errno,
+                            strerror(errno));
     }
 
     return {rc, result.str()};

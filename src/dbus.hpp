@@ -7,6 +7,8 @@
 
 #include "config.h"
 
+#include "fwupderr.hpp"
+
 #include <sdbusplus/bus.hpp>
 
 namespace dbus
@@ -82,9 +84,9 @@ PropertyType getProperty(const BusName& busname, const Path& path,
     {
         bus.call(req).read(value);
     }
-    catch (const sdbusplus::exception::SdBusError&)
+    catch (const sdbusplus::exception::SdBusError& e)
     {
-        throw std::runtime_error("Get property call failed");
+        throw FwupdateError("Get property call failed: %s", e.what());
     }
 
     return std::get<PropertyType>(value);
