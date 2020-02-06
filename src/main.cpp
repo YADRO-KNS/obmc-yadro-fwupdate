@@ -263,8 +263,10 @@ void flash_firmware(const std::string& firmware_file, bool reset,
     }
 
     RemovablePath tmpDir;
-    tracer::trace_task("Prepare temporary directory", [&tmpDir]() {
-        std::string dir = fs::temp_directory_path() / "fwupdateXXXXXX";
+    {
+        Tracer tracer("Prepare temporary directory");
+
+        std::string dir(fs::temp_directory_path() / "fwupdateXXXXXX");
         if (!mkdtemp(dir.data()))
         {
             throw FwupdateError("mkdtemp() failed, error=%d: %s", errno,
@@ -272,7 +274,8 @@ void flash_firmware(const std::string& firmware_file, bool reset,
         }
 
         tmpDir = dir;
-    });
+        tracer.done();
+    }
 
 #ifdef OPENPOWER_SUPPORT
     if (!interactive && skip_sign_check && fn.extension() == PNOR_FILE_EXT)
@@ -284,12 +287,15 @@ void flash_firmware(const std::string& firmware_file, bool reset,
     }
 #endif
 
-    tracer::trace_task("Unpack firmware package", [fn, &tmpDir]() {
+    {
+        Tracer tracer("Unpack firmware package");
+
         int rc;
         std::tie(rc, std::ignore) =
             subprocess::exec("tar -xzf", fn, "-C", tmpDir, " 2>/dev/null");
         subprocess::check_wait_status(rc);
-    });
+        tracer.done();
+    }
 
     auto manifestFile(tmpDir / MANIFEST_FILE_NAME);
     if (!fs::exists(manifestFile))
@@ -307,12 +313,16 @@ void flash_firmware(const std::string& firmware_file, bool reset,
 
     if (!skip_sign_check)
     {
-        tracer::trace_task("Check signature of firmware package", [&tmpDir]() {
+        {
+            Tracer tracer("Check signature of firmware package");
+
             if (!system_level_verify(tmpDir))
             {
                 throw FwupdateError("System level verification failed!");
             }
-        });
+
+            tracer.done();
+        }
 
         // Check target machine type
         auto currentMachine =
@@ -325,18 +335,17 @@ void flash_firmware(const std::string& firmware_file, bool reset,
         }
         else
         {
-            tracer::trace_task(
-                "Check target machine type",
-                [&manifestFile, &currentMachine]() {
-                    auto targetMachine =
-                        get_tag_value(manifestFile, "MachineName");
-                    if (currentMachine != targetMachine)
-                    {
-                        throw FwupdateError(
-                            "Frimware package is not compatible with this "
-                            "system.");
-                    }
-                });
+            Tracer tracer("Check target machine type");
+
+            auto targetMachine = get_tag_value(manifestFile, "MachineName");
+            if (currentMachine != targetMachine)
+            {
+                throw FwupdateError(
+                    "Frimware package is not compatible with this "
+                    "system.");
+            }
+
+            tracer.done();
         }
 
         auto publickeyFile(tmpDir / PUBLICKEY_FILE_NAME);
@@ -344,35 +353,35 @@ void flash_firmware(const std::string& firmware_file, bool reset,
 
         if (purpose == SystemPurpose || purpose == BmcPurpose)
         {
-            tracer::trace_task(
-                "Checking signature of OpenBMC firwmare",
-                [&tmpDir, &publickeyFile, &hashFunc]() {
-                    for (const auto& entry : openbmc::get_fw_files(tmpDir))
-                    {
-                        if (!verify_file(publickeyFile, hashFunc, entry))
-                        {
-                            throw FwupdateError("Verification of %s failed!",
-                                                entry.filename().c_str());
-                        }
-                    }
-                });
+            Tracer tracer("Checking signature of OpenBMC firwmare");
+
+            for (const auto& entry : openbmc::get_fw_files(tmpDir))
+            {
+                if (!verify_file(publickeyFile, hashFunc, entry))
+                {
+                    throw FwupdateError("Verification of %s failed!",
+                                        entry.filename().c_str());
+                }
+            }
+
+            tracer.done();
         }
 
 #ifdef OPENPOWER_SUPPORT
         if (purpose == SystemPurpose || purpose == HostPurpose)
         {
-            tracer::trace_task(
-                "Checking signature of OpenPOWER firwmare",
-                [&tmpDir, &publickeyFile, &hashFunc]() {
-                    for (const auto& entry : openpower::get_fw_files(tmpDir))
-                    {
-                        if (!verify_file(publickeyFile, hashFunc, entry))
-                        {
-                            throw FwupdateError("Verification of %s failed!",
-                                                entry.filename().c_str());
-                        }
-                    }
-                });
+            Tracer tracer("Checking signature of OpenPOWER firwmare");
+
+            for (const auto& entry : openpower::get_fw_files(tmpDir))
+            {
+                if (!verify_file(publickeyFile, hashFunc, entry))
+                {
+                    throw FwupdateError("Verification of %s failed!",
+                                        entry.filename().c_str());
+                }
+            }
+
+            tracer.done();
         }
 #endif
     }

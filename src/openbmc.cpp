@@ -25,20 +25,23 @@ namespace openbmc
 
 void lock(void)
 {
-    tracer::trace_task("Locking BMC reboot",
-                       std::bind(dbus::startUnit, REBOOT_GUARD_ENABLE));
+    Tracer tracer("Locking BMC reboot");
+    dbus::startUnit(REBOOT_GUARD_ENABLE);
+    tracer.done();
 }
 
 void unlock(void)
 {
-    tracer::trace_task("Unocking BMC reboot",
-                       std::bind(dbus::startUnit, REBOOT_GUARD_DISABLE));
+    Tracer tracer("Unocking BMC reboot");
+    dbus::startUnit(REBOOT_GUARD_DISABLE);
+    tracer.done();
 }
 
 void reset(void)
 {
-    tracer::trace_task("Enable the BMC clean",
-                       std::bind(dbus::startUnit, SERVICE_FACTORY_RESET));
+    Tracer tracer("Enable the BMC clean");
+    dbus::startUnit(SERVICE_FACTORY_RESET);
+    tracer.done();
 }
 
 void flash(const Files& firmware, bool reset)
@@ -46,32 +49,24 @@ void flash(const Files& firmware, bool reset)
     fs::path initramfs(OPENBMC_FLASH_PATH);
     for (const auto& entry : firmware)
     {
-        fprintf(stdout, "Install %s ... ", entry.filename().c_str());
-        fflush(stdout);
+        Tracer tracer("Install %s", entry.filename().c_str());
 
-        try
+        fs::path destination(initramfs / entry.filename());
+        if (fs::exists(destination))
         {
-            fs::path destination(initramfs / entry.filename());
-            if (fs::exists(destination))
-            {
-                fs::remove_all(destination);
-            }
+            fs::remove_all(destination);
+        }
 
-            fs::copy(entry, destination);
-            tracer::done();
-        }
-        catch (...)
-        {
-            tracer::fail();
-            std::rethrow_exception(std::current_exception());
-        }
+        fs::copy(entry, destination);
+
+        tracer.done();
     }
 
     if (reset)
     {
-        tracer::trace_task("Cleaning whitelist", [&initramfs]() {
-            fs::resize_file(initramfs / OPENBMC_WHITELIST_FILE_NAME, 0);
-        });
+        Tracer tracer("Cleaning whitelist");
+        fs::resize_file(initramfs / OPENBMC_WHITELIST_FILE_NAME, 0);
+        tracer.done();
     }
 }
 
@@ -88,11 +83,13 @@ void reboot(bool interactive)
     {
         if (!manual_reboot)
         {
-            tracer::trace_task("Reboot BMC system", []() {
-                int rc;
-                std::tie(rc, std::ignore) = subprocess::exec("/sbin/reboot");
-                subprocess::check_wait_status(rc);
-            });
+            Tracer tracer("Reboot BMC system");
+
+            int rc;
+            std::tie(rc, std::ignore) = subprocess::exec("/sbin/reboot");
+            subprocess::check_wait_status(rc);
+
+            tracer.done();
         }
     }
     catch (...)

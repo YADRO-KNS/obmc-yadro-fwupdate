@@ -16,7 +16,6 @@ fwupdate_sources = [
     'src/signature.cpp',
     'src/subprocess.cpp',
     'src/tags.cpp',
-    'src/tracer.cpp',
 ]
 
 conf = configuration_data()

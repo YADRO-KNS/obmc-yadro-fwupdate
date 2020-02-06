@@ -121,11 +121,10 @@ static uint8_t hiomapd_daemon_state(void)
 // True if we've suspended HIOMAPD
 static bool suspended = false;
 
-/**
- * @brief Switch HIOMAPD to suspended state.
- */
-static void hiomapd_suspend(void)
+void lock(void)
 {
+    Tracer tracer("Suspending HIOMAPD");
+
     if (hiomapd_daemon_state() == 0)
     {
         auto req = dbus::bus.new_method_call(hiomapd().c_str(), HIOMAPD_PATH,
@@ -137,13 +136,14 @@ static void hiomapd_suspend(void)
     {
         throw FwupdateError("HIOMAPD already suspended");
     }
+
+    tracer.done();
 }
 
-/**
- * @brief Restore normal state of HIOMAPD.
- */
-static void hiomapd_resume(void)
+void unlock(void)
 {
+    Tracer tracer("Resuming HIOMAPD");
+
     if (suspended)
     {
         auto req = dbus::bus.new_method_call(hiomapd().c_str(), HIOMAPD_PATH,
@@ -152,16 +152,8 @@ static void hiomapd_resume(void)
         dbus::bus.call(req);
         suspended = false;
     }
-}
 
-void lock(void)
-{
-    tracer::trace_task("Suspending HIOMAPD", hiomapd_suspend);
-}
-
-void unlock(void)
-{
-    tracer::trace_task("Resuming HIOMAPD", hiomapd_resume);
+    tracer.done();
 }
 
 void reset(void)
@@ -172,34 +164,27 @@ void reset(void)
         fprintf(stdout, "NOTE: No partitions found the PNOR flash!\n");
     }
 
-    for (auto p : partitions)
+    try
     {
-        fprintf(stdout, "Clear %s partition [%s]... ", p.first.c_str(),
-                p.second ? "ECC" : "Erase");
-        try
+        for (auto p : partitions)
         {
+            Tracer tracer("Clear %s partition [%s]", p.first.c_str(),
+                          p.second ? "ECC" : "Erase");
+
             int rc;
             std::tie(rc, std::ignore) =
                 subprocess::exec(PFLASH_CMD, "-P", p.first,
                                  p.second ? "-c" : "-e", "-f >/dev/null");
             subprocess::check_wait_status(rc);
-            tracer::done();
+
+            tracer.done();
         }
-        catch (...)
-        {
-            tracer::fail();
-            throw FwupdateError("Failed to reset PNOR flash.");
-        }
+    }
+    catch (...)
+    {
+        throw FwupdateError("Failed to reset PNOR flash.");
     }
 }
-
-struct NVRAMNotCreated : public std::runtime_error
-{
-    explicit NVRAMNotCreated() :
-        std::runtime_error::runtime_error("NVRAM is not created!")
-    {
-    }
-};
 
 void flash(const Files& firmware, const fs::path& tmpdir)
 {
@@ -207,24 +192,23 @@ void flash(const Files& firmware, const fs::path& tmpdir)
 
     if (!nvram.empty())
     {
+        Tracer tracer("Preserve NVRAM configuration");
+
         nvram /= "nvram.bin";
-        try
+        int rc;
+        std::tie(rc, std::ignore) =
+            subprocess::exec(PFLASH_CMD, "-P NVRAM -r", nvram);
+        subprocess::check_wait_status(rc);
+
+        if (!fs::exists(nvram))
         {
-            tracer::trace_task("Preserve NVRAM configuration", [&]() {
-                int rc;
-                std::tie(rc, std::ignore) =
-                    subprocess::exec(PFLASH_CMD, "-P NVRAM -r", nvram);
-                subprocess::check_wait_status(rc);
-                if (!fs::exists(nvram))
-                {
-                    throw NVRAMNotCreated();
-                }
-            });
-        }
-        catch (const NVRAMNotCreated&)
-        {
+            tracer.fail();
             fprintf(stdout, "NOTE: Preserving NVRAM failed, "
                             "default settings will be used.\n");
+        }
+        else
+        {
+            tracer.done();
         }
     }
 
@@ -241,12 +225,14 @@ void flash(const Files& firmware, const fs::path& tmpdir)
 
     if (!nvram.empty() && fs::exists(nvram))
     {
-        tracer::trace_task("Recover NVRAM configuration", [&]() {
-            int rc;
-            std::tie(rc, std::ignore) =
-                subprocess::exec(PFLASH_CMD, "-f -e -P NVRAM -p", nvram);
-            subprocess::check_wait_status(rc);
-        });
+        Tracer tracer("Recover NVRAM configuration");
+
+        int rc;
+        std::tie(rc, std::ignore) =
+            subprocess::exec(PFLASH_CMD, "-f -e -P NVRAM -p", nvram);
+        subprocess::check_wait_status(rc);
+
+        tracer.done();
     }
 }
 
