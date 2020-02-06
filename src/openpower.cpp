@@ -14,6 +14,7 @@
 
 #include <filesystem>
 #include <map>
+#include <regex>
 
 namespace openpower
 {
@@ -22,6 +23,8 @@ namespace fs = std::filesystem;
 
 // Map of PNOR partitions as partition name -> flag is it should use ECC clear
 using PartsMap = std::map<std::string, bool>;
+
+static const std::regex PnorPartInfo("^ID=\\d+\\s+(\\w+)\\s.*\\[([^\\]]+)\\]$");
 
 PartsMap getPartsToClear(const std::string& info)
 {
@@ -35,35 +38,17 @@ PartsMap getPartsToClear(const std::string& info)
         // ID=06 MVPD 0x0012d000..0x001bd000 (actual=0x00090000) [E--P--F-C-]
         // Flag 'F' means REPROVISION
         // Flag 'E' means ECC required
-        auto pos = line.find('[');
-        if (pos == std::string::npos)
+
+        std::smatch match;
+        if (std::regex_match(line, match, PnorPartInfo))
         {
-            continue;
-        }
-        auto flags = line.substr(pos);
-        if (flags.find('F') != std::string::npos)
-        {
-            // This is a partition to be cleared
-            pos = line.find_first_of(' '); // After "ID=xx"
-            if (pos == std::string::npos)
-            {
-                continue;
-            }
+            const auto& name = match[1].str();
+            const auto& flags = match[2].str();
 
-            pos = line.find_first_not_of(' ', pos); // After spaces
-            if (pos == std::string::npos)
+            if (flags.find('F') != std::string::npos)
             {
-                continue;
+                ret[name] = flags.find('E') != std::string::npos;
             }
-
-            auto end = line.find_first_of(' ', pos); // The end of part name
-            if (end == std::string::npos)
-            {
-                continue;
-            }
-            line = line.substr(pos, end - pos); // The part name
-
-            ret[line] = flags.find('E') != std::string::npos;
         }
     }
 
@@ -73,8 +58,7 @@ PartsMap getPartsToClear(const std::string& info)
 // Get partitions that should be cleared
 PartsMap getPartsToClear()
 {
-    return getPartsToClear(subprocess::exec(
-        "%s -i 2>/dev/null | grep ^ID | grep 'F'", PFLASH_CMD));
+    return getPartsToClear(subprocess::exec("%s -i 2>/dev/null", PFLASH_CMD));
 }
 
 /**
