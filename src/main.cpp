@@ -338,6 +338,8 @@ void flash_firmware(const std::string& firmware_file, bool reset,
         purpose = purpose.substr(purpose.rfind('.') + 1);
     }
 
+    bool reboot_required = false;
+
     {
         FirmwareLock lock;
 
@@ -347,10 +349,19 @@ void flash_firmware(const std::string& firmware_file, bool reset,
             {
                 updater->install(reset);
             }
+
+            // NOTE: The reboot is not required until the BMC is updated
+            if (updater->check_purpose(firmware::purpose::BMC))
+            {
+                reboot_required = true;
+            }
         }
     }
 
-    openbmc::reboot(interactive);
+    if (reboot_required)
+    {
+        openbmc::reboot(interactive);
+    }
 }
 
 /**
