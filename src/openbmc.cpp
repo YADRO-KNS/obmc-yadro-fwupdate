@@ -44,32 +44,6 @@ void reset(void)
     tracer.done();
 }
 
-void flash(const Files& firmware, bool reset)
-{
-    fs::path initramfs(OPENBMC_FLASH_PATH);
-    for (const auto& entry : firmware)
-    {
-        Tracer tracer("Install %s", entry.filename().c_str());
-
-        fs::path destination(initramfs / entry.filename());
-        if (fs::exists(destination))
-        {
-            fs::remove_all(destination);
-        }
-
-        fs::copy(entry, destination);
-
-        tracer.done();
-    }
-
-    if (reset)
-    {
-        Tracer tracer("Cleaning whitelist");
-        fs::resize_file(initramfs / OPENBMC_WHITELIST_FILE_NAME, 0);
-        tracer.done();
-    }
-}
-
 void reboot(bool interactive)
 {
     bool manual_reboot = false;
@@ -99,36 +73,32 @@ void reboot(bool interactive)
     }
 }
 
-Files get_fw_files(const fs::path& dir)
+void OpenBmcUpdater::do_install(const fs::path& file)
 {
-    Files ret;
-    bool full = false;
-    for (const auto& p : fs::directory_iterator(dir))
+    Tracer tracer("Install %s", file.filename().c_str());
+
+    fs::path destination(OPENBMC_FLASH_PATH);
+    destination /= file.filename();
+
+    if (fs::exists(destination))
     {
-        if (p.is_regular_file() && p.path().extension() != SIGNATURE_FILE_EXT &&
-            p.path().filename().string().compare(0, 6, "image-") == 0)
-        {
-            if (p.path().filename() == "image-bmc")
-            {
-                full = true;
-            }
-
-            ret.emplace(dir / p.path());
-        }
+        fs::remove_all(destination);
     }
+    fs::copy(file, destination);
 
-    if (ret.empty())
+    tracer.done();
+}
+
+void OpenBmcUpdater::do_after_install(bool reset)
+{
+    if (reset)
     {
-        throw FwupdateError("No OpenBMC firmware files found!");
+        Tracer tracer("Cleaninig whitelist");
+        fs::path whitelist(OPENBMC_FLASH_PATH);
+        whitelist /= OPENBMC_WHITELIST_FILE_NAME;
+        fs::resize_file(whitelist, 0);
+        tracer.done();
     }
-
-    if (full && ret.size() != 1)
-    {
-        throw FwupdateError(
-            "Firmware package contains overlapped OpenBMC parts!");
-    }
-
-    return ret;
 }
 
 } // namespace openbmc

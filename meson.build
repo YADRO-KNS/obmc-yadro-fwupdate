@@ -11,6 +11,8 @@ project('fwupdate', 'cpp',
 fwupdate_sources = [
     'src/confirm.cpp',
     'src/dbus.cpp',
+    'src/factory.cpp',
+    'src/firmware.cpp',
     'src/main.cpp',
     'src/openbmc.cpp',
     'src/signature.cpp',

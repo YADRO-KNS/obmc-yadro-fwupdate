@@ -7,8 +7,10 @@
 
 #include "confirm.hpp"
 #include "dbus.hpp"
+#include "factory.hpp"
 #include "fwupderr.hpp"
 #include "openbmc.hpp"
+#include "purpose.hpp"
 #include "signature.hpp"
 #include "subprocess.hpp"
 #include "tags.hpp"
@@ -153,23 +155,28 @@ struct RemovablePath : public fs::path
     }
 };
 
+fs::path get_fw_file(const fs::path& dir, const std::string& filename)
+{
+    fs::path file(dir / filename);
+    if (!fs::exists(file))
+    {
+        throw FwupdateError("%s not found!", filename.c_str());
+    }
+    return file;
+}
+
 /**
  * @brief Verify the MANIFEST and publickey file using available public keys
  *        and hash on the system.
  *
  * @param firmwareDir - path to direcotry where the firmware package extracted.
- *
- * @return true if signature verification was successful, false otherwise.
  */
-bool system_level_verify(const fs::path& firmwareDir)
+void system_level_verify(const fs::path& firmwareDir)
 {
-    auto manifestFile(firmwareDir / MANIFEST_FILE_NAME);
-    auto publicKeyFile(firmwareDir / PUBLICKEY_FILE_NAME);
+    Tracer tracer("Check signature of firmware package");
 
-    if (!fs::exists(manifestFile) || !fs::exists(publicKeyFile))
-    {
-        return false;
-    }
+    auto manifestFile = get_fw_file(firmwareDir, MANIFEST_FILE_NAME);
+    auto publicKeyFile = get_fw_file(firmwareDir, PUBLICKEY_FILE_NAME);
 
     bool valid = false;
     try
@@ -207,7 +214,42 @@ bool system_level_verify(const fs::path& firmwareDir)
         valid = false;
     }
 
-    return valid;
+    if (!valid)
+    {
+        throw FwupdateError("System level verification failed!");
+    }
+    tracer.done();
+}
+
+/**
+ * @brief Check machine type
+ *
+ * @param dir - Path to the directory where firmware package extracted
+ */
+void check_machine_type(const fs::path& dir)
+{
+    auto currentMachine =
+        get_tag_value(OS_RELEASE_FILE, "OPENBMC_TARGET_MACHINE");
+    if (currentMachine.empty())
+    {
+        // We are running on an old BMC version.
+        fprintf(stdout, "WARNING: Current machine name is undefined, "
+                        "the check is skipped.\n");
+    }
+    else
+    {
+        Tracer tracer("Check target machine type");
+
+        auto manifestFile = get_fw_file(dir, MANIFEST_FILE_NAME);
+        auto targetMachine = get_tag_value(manifestFile, "MachineName");
+        if (currentMachine != targetMachine)
+        {
+            throw FwupdateError("Frimware package is not compatible with this "
+                                "system.");
+        }
+
+        tracer.done();
+    }
 }
 
 /**
@@ -260,126 +302,51 @@ void flash_firmware(const std::string& firmware_file, bool reset,
         tracer.done();
     }
 
-#ifdef OPENPOWER_SUPPORT
-    if (!interactive && skip_sign_check && fn.extension() == PNOR_FILE_EXT)
-    {
-        // NOTE: This way is used by openpower-pnor-update@.service
-        //       instead directly call pflash
-        openpower::flash({fn}, reset ? "" : tmpDir.string());
-        return;
-    }
-#endif
-
+    auto updaters = factory::create_updaters(fn, tmpDir);
+    if (updaters.empty())
     {
         Tracer tracer("Unpack firmware package");
+
         std::ignore = subprocess::exec("tar -xzf %s -C %s 2>/dev/null",
                                        fn.c_str(), tmpDir.c_str());
+
+        updaters = factory::create_updaters(tmpDir, tmpDir);
         tracer.done();
     }
 
-    auto manifestFile(tmpDir / MANIFEST_FILE_NAME);
-    if (!fs::exists(manifestFile))
-    {
-        throw FwupdateError("No MANIFEST file found!");
-    }
-
-    auto purpose = get_tag_value(manifestFile, "purpose");
-    // Cut off `xyz.openbmc_poroject.Software.Version.VersionPurpose.`
-    purpose = purpose.substr(purpose.rfind('.') + 1);
-
-    constexpr auto SystemPurpose = "System";
-    constexpr auto HostPurpose = "Host";
-    constexpr auto BmcPurpose = "BMC";
-
     if (!skip_sign_check)
     {
-        {
-            Tracer tracer("Check signature of firmware package");
+        system_level_verify(tmpDir);
+        check_machine_type(tmpDir);
 
-            if (!system_level_verify(tmpDir))
-            {
-                throw FwupdateError("System level verification failed!");
-            }
-
-            tracer.done();
-        }
-
-        // Check target machine type
-        auto currentMachine =
-            get_tag_value(OS_RELEASE_FILE, "OPENBMC_TARGET_MACHINE");
-        if (currentMachine.empty())
-        {
-            // We are running on an old BMC version.
-            fprintf(stdout, "WARNING: Current machine name is undefined, "
-                            "the check is skipped.\n");
-        }
-        else
-        {
-            Tracer tracer("Check target machine type");
-
-            auto targetMachine = get_tag_value(manifestFile, "MachineName");
-            if (currentMachine != targetMachine)
-            {
-                throw FwupdateError(
-                    "Frimware package is not compatible with this "
-                    "system.");
-            }
-
-            tracer.done();
-        }
-
-        auto publickeyFile(tmpDir / PUBLICKEY_FILE_NAME);
+        auto publicKey(tmpDir / PUBLICKEY_FILE_NAME);
+        auto manifestFile(tmpDir / MANIFEST_FILE_NAME);
         auto hashFunc = get_tag_value(manifestFile, "HashType");
 
-        if (purpose == SystemPurpose || purpose == BmcPurpose)
+        for (auto& updater : updaters)
         {
-            Tracer tracer("Checking signature of OpenBMC firwmare");
-
-            for (const auto& entry : openbmc::get_fw_files(tmpDir))
-            {
-                if (!verify_file(publickeyFile, hashFunc, entry))
-                {
-                    throw FwupdateError("Verification of %s failed!",
-                                        entry.filename().c_str());
-                }
-            }
-
-            tracer.done();
+            updater->verify(publicKey, hashFunc);
         }
+    }
 
-#ifdef OPENPOWER_SUPPORT
-        if (purpose == SystemPurpose || purpose == HostPurpose)
-        {
-            Tracer tracer("Checking signature of OpenPOWER firwmare");
-
-            for (const auto& entry : openpower::get_fw_files(tmpDir))
-            {
-                if (!verify_file(publickeyFile, hashFunc, entry))
-                {
-                    throw FwupdateError("Verification of %s failed!",
-                                        entry.filename().c_str());
-                }
-            }
-
-            tracer.done();
-        }
-#endif
+    std::string purpose = firmware::purpose::System;
+    auto manifestFile(tmpDir / MANIFEST_FILE_NAME);
+    if (fs::exists(manifestFile))
+    {
+        purpose = get_tag_value(manifestFile, "purpose");
+        // Cut off `xyz.openbmc_poroject.Software.Version.VersionPurpose.`
+        purpose = purpose.substr(purpose.rfind('.') + 1);
     }
 
     {
         FirmwareLock lock;
 
-#ifdef OPENPOWER_SUPPORT
-        if (purpose == SystemPurpose || purpose == HostPurpose)
+        for (auto& updater : updaters)
         {
-            openpower::flash(openpower::get_fw_files(tmpDir),
-                             reset ? "" : tmpDir.string());
-        }
-#endif
-
-        if (purpose == SystemPurpose || purpose == BmcPurpose)
-        {
-            openbmc::flash(openbmc::get_fw_files(tmpDir), reset);
+            if (updater->check_purpose(purpose))
+            {
+                updater->install(reset);
+            }
         }
     }
 
@@ -473,6 +440,13 @@ int main(int argc, char* argv[])
                 return EXIT_FAILURE;
         }
     }
+
+#ifdef OPENPOWER_SUPPORT
+    factory::register_updater(
+        "^.+\\.pnor$", factory::make_updater<openpower::OpenPowerUpdater>);
+#endif
+    factory::register_updater("^image-.+$",
+                              factory::make_updater<openbmc::OpenBmcUpdater>);
 
     try
     {

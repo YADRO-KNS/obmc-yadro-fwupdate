@@ -3,13 +3,11 @@
  * Copyright (C) 2020 YADRO.
  */
 
-#include <filesystem>
-#include <set>
+#include "firmware.hpp"
+#include "purpose.hpp"
 
 namespace openbmc
 {
-namespace fs = std::filesystem;
-using Files = std::set<fs::path>;
 
 /**
  * @brief RAII wrapper for locking BMC reboot.
@@ -29,25 +27,23 @@ struct Lock
 void reset(void);
 
 /**
- * @brief Put firmware image to the ramfs where from it will be flashed.
- *
- * @param firmware  - Path to firmware image.
- * @param reset     - Flag to clean whitelist.
- */
-void flash(const Files& firmware, bool reset = false);
-
-/**
  * @brief Reboot the BMC.
  */
 void reboot(bool interactive);
 
-/**
- * @brief Get the set of required OpenBMC firmware files
- *
- * @param dir - Path to the directory where firmware package extracted
- *
- * @return Set of required files
- */
-Files get_fw_files(const fs::path& dir);
+using namespace firmware;
+
+struct OpenBmcUpdater : public UpdaterBase
+{
+    using UpdaterBase::UpdaterBase;
+
+    void do_install(const fs::path& file) override;
+    void do_after_install(bool reset) override;
+
+    bool check_purpose(const std::string& purpose) const override
+    {
+        return purpose == purpose::System || purpose == purpose::BMC;
+    }
+};
 
 } // namespace openbmc

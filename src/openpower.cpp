@@ -12,14 +12,11 @@
 #include "subprocess.hpp"
 #include "tracer.hpp"
 
-#include <filesystem>
 #include <map>
 #include <regex>
 
 namespace openpower
 {
-
-namespace fs = std::filesystem;
 
 // Map of PNOR partitions as partition name -> flag is it should use ECC clear
 using PartsMap = std::map<std::string, bool>;
@@ -165,15 +162,13 @@ void reset(void)
     }
 }
 
-void flash(const Files& firmware, const fs::path& tmpdir)
+void OpenPowerUpdater::do_before_install(bool reset)
 {
-    fs::path nvram(tmpdir);
-
-    if (!nvram.empty())
+    if (!reset)
     {
         Tracer tracer("Preserve NVRAM configuration");
 
-        nvram /= "nvram.bin";
+        auto nvram(tmpdir / "nvram.bin");
         std::ignore = subprocess::exec("%s -P NVRAM -r %s &>/dev/null",
                                        PFLASH_CMD, nvram.c_str());
 
@@ -188,45 +183,28 @@ void flash(const Files& firmware, const fs::path& tmpdir)
             tracer.done();
         }
     }
+}
 
-    for (const auto& entry : firmware)
-    {
-        fprintf(stdout, "Writing %s ... \n", entry.filename().c_str());
-        fflush(stdout);
+void OpenPowerUpdater::do_install(const fs::path& file)
+{
+    // NOTE: This process may take a lot of time and we want to show the
+    //       progress from original pflash output.
+    fprintf(stdout, "Writing %s ... \n", file.filename().c_str());
+    fflush(stdout);
+    int rc = system(strfmt("%s -f -E -p %s", PFLASH_CMD, file.c_str()).c_str());
+    subprocess::check_wait_status(rc);
+}
 
-        // NOTE: This process may take a lot of time and we want to show the
-        //       progress from original pflash output.
-        int rc =
-            system(strfmt("%s -f -E -p %s", PFLASH_CMD, entry.c_str()).c_str());
-        subprocess::check_wait_status(rc);
-    }
-
-    if (!nvram.empty() && fs::exists(nvram))
+void OpenPowerUpdater::do_after_install(bool reset)
+{
+    auto nvram(tmpdir / "nvram.bin");
+    if (!reset && fs::exists(nvram))
     {
         Tracer tracer("Recover NVRAM configuration");
         std::ignore = subprocess::exec("%s -f -e -P NVRAM -p %s", PFLASH_CMD,
                                        nvram.c_str());
         tracer.done();
     }
-}
-
-Files get_fw_files(const fs::path& dir)
-{
-    Files ret;
-    for (const auto& p : fs::directory_iterator(dir))
-    {
-        if (p.is_regular_file() && p.path().extension() == ".pnor")
-        {
-            ret.emplace(dir / p.path());
-        }
-    }
-
-    if (ret.empty())
-    {
-        throw FwupdateError("No OpenPOWER firmware files found!");
-    }
-
-    return ret;
 }
 
 } // namespace openpower
