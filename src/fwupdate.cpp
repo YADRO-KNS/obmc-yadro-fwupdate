@@ -34,7 +34,8 @@ static fs::path create_tmp_dir()
     return dir;
 }
 
-FwUpdate::FwUpdate() : tmpdir(create_tmp_dir())
+FwUpdate::FwUpdate(bool with_lock) :
+    tmpdir(create_tmp_dir()), with_lock(with_lock)
 {
 #ifdef OPENPOWER_SUPPORT
     updaters.emplace_back(
@@ -59,9 +60,12 @@ FwUpdate::~FwUpdate()
 
 void FwUpdate::lock()
 {
-    for (auto it = updaters.rbegin(); it != updaters.rend(); ++it)
+    if (with_lock)
     {
-        (*it)->lock();
+        for (auto it = updaters.rbegin(); it != updaters.rend(); ++it)
+        {
+            (*it)->lock();
+        }
     }
 }
 
@@ -75,10 +79,12 @@ void FwUpdate::unlock()
 
 void FwUpdate::reset()
 {
+    lock();
     for (auto& updater : updaters)
     {
         updater->reset();
     }
+    unlock();
 }
 
 bool FwUpdate::add_file(const fs::path& file)
@@ -221,6 +227,8 @@ void FwUpdate::verify(void)
 bool FwUpdate::install(bool reset)
 {
     bool ret = false;
+
+    lock();
     for (auto& updater : updaters)
     {
         if (updater->install(reset))
@@ -228,6 +236,8 @@ bool FwUpdate::install(bool reset)
             ret = true;
         }
     }
+    unlock();
+
     return ret;
 }
 

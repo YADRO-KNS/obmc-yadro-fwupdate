@@ -18,18 +18,14 @@ struct FwUpdate
     FwUpdate(const FwUpdate&) = delete;
     FwUpdate& operator=(const FwUpdate&) = delete;
 
-    FwUpdate();
+    /**
+     * @brief FwUpdate object constructor
+     *
+     * @param with_lock - flag to use guards
+     */
+    FwUpdate(bool with_lock);
+
     ~FwUpdate();
-
-    /**
-     * @brief Enable guards for all firmware types
-     */
-    void lock(void);
-
-    /**
-     * @brief Disable guards for all firmware types
-     */
-    void unlock(void);
 
     /**
      * @brief Reset all settings to manufacture default.
@@ -58,6 +54,16 @@ struct FwUpdate
 
   protected:
     /**
+     * @brief Enable guards for all firmware types
+     */
+    void lock(void);
+
+    /**
+     * @brief Disable guards for all firmware types
+     */
+    void unlock(void);
+
+    /**
      * @brief Add specified file to updater implementations
      *
      * @param file - path to firmware file
@@ -84,6 +90,7 @@ struct FwUpdate
 
   private:
     fs::path tmpdir;
+    bool with_lock;
     std::vector<std::unique_ptr<UpdaterIFace>> updaters;
 };
 

@@ -117,8 +117,9 @@ void reboot(bool interactive)
  *
  * @param interactive - flag to use interactive mode
  *                      (ask for user confirmation)
+ * @param with_lock   - flag to use guards for locking flash access
  */
-void reset_firmware(bool interactive)
+void reset_firmware(bool interactive, bool with_lock)
 {
     constexpr auto LOST_DATA_WARN =
         "WARNING: "
@@ -129,11 +130,9 @@ void reset_firmware(bool interactive)
         return;
     }
 
-    firmware::FwUpdate fwupdate;
+    firmware::FwUpdate fwupdate(with_lock);
 
-    fwupdate.lock();
     fwupdate.reset();
-    fwupdate.unlock();
 
     reboot(interactive);
 }
@@ -145,9 +144,10 @@ void reset_firmware(bool interactive)
  * @param reset           - flag to drop current settings.
  * @param interactive     - flag to use interactive mode.
  * @param skip_sign_check - flag to skip signature verification.
+ * @param with_lock       - flag to use guards for locking flash access
  */
 void flash_firmware(const fs::path& firmware_file, bool reset, bool interactive,
-                    bool skip_sign_check)
+                    bool skip_sign_check, bool with_lock)
 {
     if (!fs::exists(firmware_file))
     {
@@ -172,7 +172,7 @@ void flash_firmware(const fs::path& firmware_file, bool reset, bool interactive,
         }
     }
 
-    firmware::FwUpdate fwupdate;
+    firmware::FwUpdate fwupdate(with_lock);
     fwupdate.unpack(firmware_file);
 
     if (!skip_sign_check)
@@ -180,11 +180,7 @@ void flash_firmware(const fs::path& firmware_file, bool reset, bool interactive,
         fwupdate.verify();
     }
 
-    fwupdate.lock();
-    bool reboot_required = fwupdate.install(reset);
-    fwupdate.unlock();
-
-    if (reboot_required)
+    if (fwupdate.install(reset))
     {
         reboot(interactive);
     }
@@ -206,6 +202,7 @@ static void print_usage(const char* app)
                     reset RW partition of OpenBMC and clean some partitions of
                     the PNOR flash (such as NVRAM, GUARD, HBEL etc).
   -s, --no-sign     disable digital signature verification
+  -l, --no-lock     do not use guards to locking flash access
   -y, --yes         don't ask user for confirmation
   -v, --version     print installed firmware version info and exit
 )");
@@ -229,6 +226,7 @@ int main(int argc, char* argv[])
         { "file",    required_argument, 0, 'f' },
         { "reset",   no_argument,       0, 'r' },
         { "no-sign", no_argument,       0, 's' },
+        { "no-lock", no_argument,       0, 'l' },
         { "yes",     no_argument,       0, 'y' },
         { "version", no_argument,       0, 'v' },
         { 0,         0,                 0,  0  }
@@ -238,12 +236,13 @@ int main(int argc, char* argv[])
     bool force_yes = false;
     bool do_reset = false;
     bool skip_sign_check = false;
+    bool with_lock = true;
     bool do_show_version = false;
     std::string firmware_file;
 
     opterr = 0;
     int opt_val;
-    while ((opt_val = getopt_long(argc, argv, "hf:rsyv", opts, nullptr)) != -1)
+    while ((opt_val = getopt_long(argc, argv, "hf:rslyv", opts, nullptr)) != -1)
     {
         switch (opt_val)
         {
@@ -261,6 +260,10 @@ int main(int argc, char* argv[])
 
             case 's':
                 skip_sign_check = true;
+                break;
+
+            case 'l':
+                with_lock = false;
                 break;
 
             case 'y':
@@ -286,12 +289,12 @@ int main(int argc, char* argv[])
         }
         else if (!firmware_file.empty())
         {
-            flash_firmware(firmware_file, do_reset, !force_yes,
-                           skip_sign_check);
+            flash_firmware(firmware_file, do_reset, !force_yes, skip_sign_check,
+                           with_lock);
         }
         else if (do_reset)
         {
-            reset_firmware(!force_yes);
+            reset_firmware(!force_yes, with_lock);
         }
         else
         {
