@@ -7,18 +7,10 @@
 
 #include "confirm.hpp"
 #include "dbus.hpp"
-#include "factory.hpp"
+#include "fwupdate.hpp"
 #include "fwupderr.hpp"
-#include "openbmc.hpp"
-#include "purpose.hpp"
-#include "signature.hpp"
 #include "subprocess.hpp"
-#include "tags.hpp"
 #include "tracer.hpp"
-
-#ifdef OPENPOWER_SUPPORT
-#include "openpower.hpp"
-#endif
 
 #include <getopt.h>
 
@@ -87,19 +79,38 @@ static void show_version()
     }
 }
 
-struct FirmwareLock
+/**
+ * @brief Reboot the BMC.
+ */
+void reboot(bool interactive)
 {
-    FirmwareLock() = default;
-    ~FirmwareLock() = default;
-    FirmwareLock(const FirmwareLock&) = delete;
-    FirmwareLock& operator=(const FirmwareLock&) = delete;
+    bool manual_reboot = !interactive;
 
-  private:
-    openbmc::Lock openbmc_lock;
-#ifdef OPENPOWER_SUPPORT
-    openpower::Lock openpower_lock;
-#endif
-};
+    if (interactive &&
+        !confirm("The BMC system will be rebooted to apply changes."))
+    {
+        manual_reboot = true;
+    }
+
+    try
+    {
+        if (!manual_reboot)
+        {
+            Tracer tracer("Reboot BMC system");
+            std::ignore = subprocess::exec("/sbin/reboot");
+            tracer.done();
+        }
+    }
+    catch (...)
+    {
+        manual_reboot = true;
+    }
+
+    if (manual_reboot)
+    {
+        throw FwupdateError("The BMC needs to be manually rebooted.");
+    }
+}
 
 /**
  * @brief Reset all settings to manufacturing default.
@@ -118,138 +129,13 @@ void reset_firmware(bool interactive)
         return;
     }
 
-    {
-        FirmwareLock lock;
-#ifdef OPENPOWER_SUPPORT
-        openpower::reset();
-#endif
-        openbmc::reset();
-    }
+    firmware::FwUpdate fwupdate;
 
-    openbmc::reboot(interactive);
-}
+    fwupdate.lock();
+    fwupdate.reset();
+    fwupdate.unlock();
 
-/**
- * @brief Auto removable path object.
- */
-struct RemovablePath : public fs::path
-{
-    using fs::path::path;
-
-    // Copy operations are disallowed
-    RemovablePath(const RemovablePath&) = delete;
-    RemovablePath& operator=(const RemovablePath&) = delete;
-
-    // Move operations are allowed
-    RemovablePath(RemovablePath&&) = default;
-    RemovablePath& operator=(RemovablePath&&) = default;
-
-    // Recursive delete filesystem entries
-    ~RemovablePath()
-    {
-        if (!empty())
-        {
-            std::error_code ec;
-            fs::remove_all(*this, ec);
-        }
-    }
-};
-
-fs::path get_fw_file(const fs::path& dir, const std::string& filename)
-{
-    fs::path file(dir / filename);
-    if (!fs::exists(file))
-    {
-        throw FwupdateError("%s not found!", filename.c_str());
-    }
-    return file;
-}
-
-/**
- * @brief Verify the MANIFEST and publickey file using available public keys
- *        and hash on the system.
- *
- * @param firmwareDir - path to direcotry where the firmware package extracted.
- */
-void system_level_verify(const fs::path& firmwareDir)
-{
-    Tracer tracer("Check signature of firmware package");
-
-    auto manifestFile = get_fw_file(firmwareDir, MANIFEST_FILE_NAME);
-    auto publicKeyFile = get_fw_file(firmwareDir, PUBLICKEY_FILE_NAME);
-
-    bool valid = false;
-    try
-    {
-        // Verify the file signature with available public keys and hash
-        // function. For any internal failure during the key/hash pair specific
-        // validation, should continue the validation with next available
-        // key/hash pair.
-        for (const auto& p : fs::directory_iterator(SIGNED_IMAGE_CONF_PATH))
-        {
-            auto publicKey(p.path() / PUBLICKEY_FILE_NAME);
-            auto hashFunc =
-                get_tag_value(p.path() / HASH_FILE_NAME, "HashType");
-
-            try
-            {
-                valid = verify_file(publicKey, hashFunc, manifestFile);
-                if (valid)
-                {
-                    valid = verify_file(publicKey, hashFunc, publicKeyFile);
-                    if (valid)
-                    {
-                        break;
-                    }
-                }
-            }
-            catch (...)
-            {
-                valid = false;
-            }
-        }
-    }
-    catch (const fs::filesystem_error&)
-    {
-        valid = false;
-    }
-
-    if (!valid)
-    {
-        throw FwupdateError("System level verification failed!");
-    }
-    tracer.done();
-}
-
-/**
- * @brief Check machine type
- *
- * @param dir - Path to the directory where firmware package extracted
- */
-void check_machine_type(const fs::path& dir)
-{
-    auto currentMachine =
-        get_tag_value(OS_RELEASE_FILE, "OPENBMC_TARGET_MACHINE");
-    if (currentMachine.empty())
-    {
-        // We are running on an old BMC version.
-        fprintf(stdout, "WARNING: Current machine name is undefined, "
-                        "the check is skipped.\n");
-    }
-    else
-    {
-        Tracer tracer("Check target machine type");
-
-        auto manifestFile = get_fw_file(dir, MANIFEST_FILE_NAME);
-        auto targetMachine = get_tag_value(manifestFile, "MachineName");
-        if (currentMachine != targetMachine)
-        {
-            throw FwupdateError("Frimware package is not compatible with this "
-                                "system.");
-        }
-
-        tracer.done();
-    }
+    reboot(interactive);
 }
 
 /**
@@ -260,11 +146,10 @@ void check_machine_type(const fs::path& dir)
  * @param interactive     - flag to use interactive mode.
  * @param skip_sign_check - flag to skip signature verification.
  */
-void flash_firmware(const std::string& firmware_file, bool reset,
-                    bool interactive, bool skip_sign_check)
+void flash_firmware(const fs::path& firmware_file, bool reset, bool interactive,
+                    bool skip_sign_check)
 {
-    fs::path fn(firmware_file);
-    if (!fs::exists(fn))
+    if (!fs::exists(firmware_file))
     {
         throw FwupdateError("Firmware package not found!");
     }
@@ -287,80 +172,21 @@ void flash_firmware(const std::string& firmware_file, bool reset,
         }
     }
 
-    RemovablePath tmpDir;
-    {
-        Tracer tracer("Prepare temporary directory");
-
-        std::string dir(fs::temp_directory_path() / "fwupdateXXXXXX");
-        if (!mkdtemp(dir.data()))
-        {
-            throw FwupdateError("mkdtemp() failed, error=%d: %s", errno,
-                                strerror(errno));
-        }
-
-        tmpDir = dir;
-        tracer.done();
-    }
-
-    auto updaters = factory::create_updaters(fn, tmpDir);
-    if (updaters.empty())
-    {
-        Tracer tracer("Unpack firmware package");
-
-        std::ignore = subprocess::exec("tar -xzf %s -C %s 2>/dev/null",
-                                       fn.c_str(), tmpDir.c_str());
-
-        updaters = factory::create_updaters(tmpDir, tmpDir);
-        tracer.done();
-    }
+    firmware::FwUpdate fwupdate;
+    fwupdate.unpack(firmware_file);
 
     if (!skip_sign_check)
     {
-        system_level_verify(tmpDir);
-        check_machine_type(tmpDir);
-
-        auto publicKey(tmpDir / PUBLICKEY_FILE_NAME);
-        auto manifestFile(tmpDir / MANIFEST_FILE_NAME);
-        auto hashFunc = get_tag_value(manifestFile, "HashType");
-
-        for (auto& updater : updaters)
-        {
-            updater->verify(publicKey, hashFunc);
-        }
+        fwupdate.verify();
     }
 
-    std::string purpose = firmware::purpose::System;
-    auto manifestFile(tmpDir / MANIFEST_FILE_NAME);
-    if (fs::exists(manifestFile))
-    {
-        purpose = get_tag_value(manifestFile, "purpose");
-        // Cut off `xyz.openbmc_poroject.Software.Version.VersionPurpose.`
-        purpose = purpose.substr(purpose.rfind('.') + 1);
-    }
-
-    bool reboot_required = false;
-
-    {
-        FirmwareLock lock;
-
-        for (auto& updater : updaters)
-        {
-            if (updater->check_purpose(purpose))
-            {
-                updater->install(reset);
-            }
-
-            // NOTE: The reboot is not required until the BMC is updated
-            if (updater->check_purpose(firmware::purpose::BMC))
-            {
-                reboot_required = true;
-            }
-        }
-    }
+    fwupdate.lock();
+    bool reboot_required = fwupdate.install(reset);
+    fwupdate.unlock();
 
     if (reboot_required)
     {
-        openbmc::reboot(interactive);
+        reboot(interactive);
     }
 }
 
@@ -451,13 +277,6 @@ int main(int argc, char* argv[])
                 return EXIT_FAILURE;
         }
     }
-
-#ifdef OPENPOWER_SUPPORT
-    factory::register_updater(
-        "^.+\\.pnor$", factory::make_updater<openpower::OpenPowerUpdater>);
-#endif
-    factory::register_updater("^image-.+$",
-                              factory::make_updater<openbmc::OpenBmcUpdater>);
 
     try
     {

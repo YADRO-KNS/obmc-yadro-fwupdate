@@ -16,6 +16,29 @@ struct UpdaterIFace
     virtual ~UpdaterIFace() = default; // Suppress syntastic/clang warning
 
     /**
+     * @brief Enable firmware guard
+     */
+    virtual void lock(void) = 0;
+
+    /**
+     * @brief Disable firmware guard
+     */
+    virtual void unlock(void) = 0;
+
+    /**
+     * @brief Reset settings to manufacture default.
+     */
+    virtual void reset(void) = 0;
+
+    /**
+     * @brief Add firmware file
+     *
+     * @param file - path to the firmware file.
+     * @return true if file successeful added
+     */
+    virtual bool add(const fs::path& file) = 0;
+
+    /**
      * @brief Check signatures of firmware files.
      *
      * @param pulicKey - Path to public key file
@@ -28,13 +51,9 @@ struct UpdaterIFace
      * @brief Write firmware files to the flash drive
      *
      * @param reset - flag to reset stored settings.
+     * @return True if reboot required
      */
-    virtual void install(bool reset) = 0;
-
-    /**
-     * @brief Check if the updater corresponds to the specified purpose.
-     */
-    virtual bool check_purpose(const std::string& purpose) const = 0;
+    virtual bool install(bool reset) = 0;
 };
 
 using Files = std::vector<fs::path>;
@@ -44,16 +63,21 @@ struct UpdaterBase : public UpdaterIFace
     /**
      * @brief UpdaterBase object constructor
      *
-     * @param files  - list of firmware files
      * @param tmpdir - path to temporary directory
      */
-    UpdaterBase(Files& files, const fs::path& tmpdir);
+    UpdaterBase(const fs::path& tmpdir);
 
+    bool add(const fs::path& file) override;
     void verify(const fs::path& publicKey,
                 const std::string& hashFunc) override;
-    void install(bool reset) override;
+    bool install(bool reset) override;
 
   protected:
+    /**
+     * @brief Check if specified file belongs to this firmware type.
+     */
+    virtual bool is_file_belongs(const fs::path& file) const = 0;
+
     /**
      * @brief Will be called before installation procedure
      *
@@ -74,10 +98,9 @@ struct UpdaterBase : public UpdaterIFace
      * @brief Will be called after success installation
      *
      * @param reset - flag to reset stored settings
+     * @return True if reboot required
      */
-    virtual void do_after_install(bool /*reset*/)
-    {
-    }
+    virtual bool do_after_install(bool /*reset*/) = 0;
 
     Files files;     //! List of firmware files
     fs::path tmpdir; //! Temporary directory

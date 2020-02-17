@@ -4,15 +4,23 @@
  */
 
 #include "firmware.hpp"
-
 #include "signature.hpp"
 
 namespace firmware
 {
 
-UpdaterBase::UpdaterBase(Files& files, const fs::path& tmpdir) :
-    files(std::move(files)), tmpdir(tmpdir)
+UpdaterBase::UpdaterBase(const fs::path& tmpdir) : tmpdir(tmpdir)
 {
+}
+
+bool UpdaterBase::add(const fs::path& file)
+{
+    bool ret = fs::is_regular_file(file) && is_file_belongs(file);
+    if (ret)
+    {
+        files.emplace_back(file);
+    }
+    return ret;
 }
 
 void UpdaterBase::verify(const fs::path& publicKey, const std::string& hashFunc)
@@ -23,7 +31,7 @@ void UpdaterBase::verify(const fs::path& publicKey, const std::string& hashFunc)
     }
 }
 
-void UpdaterBase::install(bool reset)
+bool UpdaterBase::install(bool reset)
 {
     do_before_install(reset);
 
@@ -32,7 +40,7 @@ void UpdaterBase::install(bool reset)
         do_install(file);
     }
 
-    do_after_install(reset);
+    return do_after_install(reset);
 }
 
 } // namespace firmware

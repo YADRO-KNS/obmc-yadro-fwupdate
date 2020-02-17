@@ -6,41 +6,25 @@
 #pragma once
 
 #include "firmware.hpp"
-#include "purpose.hpp"
 
 namespace openpower
 {
-/**
- * @brief RAII wrapper for locking access to PNOR flash drive.
- */
-struct Lock
-{
-    Lock(const Lock&) = delete;
-    Lock& operator=(const Lock&) = delete;
-
-    Lock();
-    ~Lock();
-};
-
-/**
- * @brief Clear PNOR partitions on the flash device.
- */
-void reset(void);
-
 using namespace firmware;
 
 struct OpenPowerUpdater : public UpdaterBase
 {
     using UpdaterBase::UpdaterBase;
 
+    void lock(void) override;
+    void unlock(void) override;
+    void reset(void) override;
     void do_before_install(bool reset) override;
     void do_install(const fs::path& file) override;
-    void do_after_install(bool reset) override;
+    bool do_after_install(bool reset) override;
+    bool is_file_belongs(const fs::path& file) const override;
 
-    bool check_purpose(const std::string& purpose) const override
-    {
-        return purpose == purpose::System || purpose == purpose::Host;
-    }
+  private:
+    bool locked = false;
 };
 
 } // namespace openpower

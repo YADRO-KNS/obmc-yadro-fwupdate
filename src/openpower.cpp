@@ -98,10 +98,7 @@ static uint8_t hiomapd_daemon_state(void)
                                       "DaemonState");
 }
 
-// True if we've suspended HIOMAPD
-static bool suspended = false;
-
-Lock::Lock()
+void OpenPowerUpdater::lock(void)
 {
     Tracer tracer("Suspending HIOMAPD");
 
@@ -110,7 +107,7 @@ Lock::Lock()
         auto req = dbus::bus.new_method_call(hiomapd().c_str(), HIOMAPD_PATH,
                                              HIOMAPD_IFACE, "Suspend");
         dbus::bus.call(req);
-        suspended = true;
+        locked = true;
     }
     else
     {
@@ -120,23 +117,23 @@ Lock::Lock()
     tracer.done();
 }
 
-Lock::~Lock()
+void OpenPowerUpdater::unlock(void)
 {
-    Tracer tracer("Resuming HIOMAPD");
-
-    if (suspended)
+    if (locked)
     {
+        Tracer tracer("Resuming HIOMAPD");
+
         auto req = dbus::bus.new_method_call(hiomapd().c_str(), HIOMAPD_PATH,
                                              HIOMAPD_IFACE, "Resume");
         req.append(true);
         dbus::bus.call(req);
-        suspended = false;
-    }
+        locked = false;
 
-    tracer.done();
+        tracer.done();
+    }
 }
 
-void reset(void)
+void OpenPowerUpdater::reset(void)
 {
     auto partitions = getPartsToClear();
     if (partitions.empty())
@@ -164,7 +161,7 @@ void reset(void)
 
 void OpenPowerUpdater::do_before_install(bool reset)
 {
-    if (!reset)
+    if (!files.empty() && !reset)
     {
         Tracer tracer("Preserve NVRAM configuration");
 
@@ -195,16 +192,22 @@ void OpenPowerUpdater::do_install(const fs::path& file)
     subprocess::check_wait_status(rc);
 }
 
-void OpenPowerUpdater::do_after_install(bool reset)
+bool OpenPowerUpdater::do_after_install(bool reset)
 {
     auto nvram(tmpdir / "nvram.bin");
-    if (!reset && fs::exists(nvram))
+    if (!reset && fs::exists(nvram) && !files.empty())
     {
         Tracer tracer("Recover NVRAM configuration");
         std::ignore = subprocess::exec("%s -f -e -P NVRAM -p %s", PFLASH_CMD,
                                        nvram.c_str());
         tracer.done();
     }
+    return false;
+}
+
+bool OpenPowerUpdater::is_file_belongs(const fs::path& file) const
+{
+    return file.extension() == ".pnor";
 }
 
 } // namespace openpower

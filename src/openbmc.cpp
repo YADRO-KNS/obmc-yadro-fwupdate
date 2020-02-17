@@ -7,70 +7,44 @@
 
 #include "openbmc.hpp"
 
-#include "confirm.hpp"
 #include "dbus.hpp"
 #include "fwupderr.hpp"
 #include "subprocess.hpp"
 #include "tracer.hpp"
 
-#include <exception>
-#include <functional>
-
 #define ENV_FACTORY_RESET "openbmconce\\x3dfactory\\x2dreset"
 #define SERVICE_FACTORY_RESET                                                  \
     "obmc-flash-bmc-setenv@" ENV_FACTORY_RESET ".service"
 
+#include <regex>
+
 namespace openbmc
 {
 
-Lock::Lock()
+void OpenBmcUpdater::lock()
 {
     Tracer tracer("Locking BMC reboot");
     dbus::startUnit(REBOOT_GUARD_ENABLE);
+    locked = true;
     tracer.done();
 }
 
-Lock::~Lock()
+void OpenBmcUpdater::unlock()
 {
-    Tracer tracer("Unocking BMC reboot");
-    dbus::startUnit(REBOOT_GUARD_DISABLE);
-    tracer.done();
+    if (locked)
+    {
+        Tracer tracer("Unocking BMC reboot");
+        dbus::startUnit(REBOOT_GUARD_DISABLE);
+        locked = false;
+        tracer.done();
+    }
 }
 
-void reset(void)
+void OpenBmcUpdater::reset()
 {
     Tracer tracer("Enable the BMC clean");
     dbus::startUnit(SERVICE_FACTORY_RESET);
     tracer.done();
-}
-
-void reboot(bool interactive)
-{
-    bool manual_reboot = false;
-    if (interactive &&
-        !confirm("The BMC system will be rebooted to apply changes."))
-    {
-        manual_reboot = true;
-    }
-
-    try
-    {
-        if (!manual_reboot)
-        {
-            Tracer tracer("Reboot BMC system");
-            std::ignore = subprocess::exec("/sbin/reboot");
-            tracer.done();
-        }
-    }
-    catch (...)
-    {
-        manual_reboot = true;
-    }
-
-    if (manual_reboot)
-    {
-        throw FwupdateError("The BMC needs to be manually rebooted.");
-    }
 }
 
 void OpenBmcUpdater::do_install(const fs::path& file)
@@ -89,16 +63,29 @@ void OpenBmcUpdater::do_install(const fs::path& file)
     tracer.done();
 }
 
-void OpenBmcUpdater::do_after_install(bool reset)
+bool OpenBmcUpdater::do_after_install(bool reset)
 {
-    if (reset)
+    bool installed = !files.empty();
+
+    if (installed && reset)
     {
         Tracer tracer("Cleaninig whitelist");
         fs::path whitelist(OPENBMC_FLASH_PATH);
         whitelist /= OPENBMC_WHITELIST_FILE_NAME;
-        fs::resize_file(whitelist, 0);
+        if (fs::exists(whitelist))
+        {
+            fs::resize_file(whitelist, 0);
+        }
         tracer.done();
     }
+
+    return installed;
+}
+
+bool OpenBmcUpdater::is_file_belongs(const fs::path& file) const
+{
+    static const std::regex image("^image-(bmc|kernel|rofs|rwfs|u-boot)$");
+    return std::regex_match(file.filename().string(), image);
 }
 
 } // namespace openbmc
