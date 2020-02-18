@@ -108,7 +108,7 @@ RSA* createPublicRSA(const std::string& publicKey)
 {
     auto data = MappedMem::open(publicKey);
     BIO_MEM_Ptr keyBio(BIO_new_mem_buf(data.get(), data.size()), &::BIO_free);
-    if (keyBio.get() == nullptr)
+    if (!keyBio)
     {
         throw FwupdateError("Failed to create new BIO Memory buffer.");
     }

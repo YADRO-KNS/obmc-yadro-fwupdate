@@ -6,6 +6,7 @@
 #include "fwupdbase.hpp"
 
 #include "signature.hpp"
+#include "tracer.hpp"
 
 FwUpdBase::FwUpdBase(const fs::path& tmpdir) : tmpdir(tmpdir)
 {
@@ -25,7 +26,9 @@ void FwUpdBase::verify(const fs::path& publicKey, const std::string& hashFunc)
 {
     for (const auto& file : files)
     {
+        Tracer tracer("Check signature for %s", file.filename().c_str());
         verify_file(publicKey, hashFunc, file);
+        tracer.done();
     }
 }
 
