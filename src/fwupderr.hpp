@@ -9,6 +9,9 @@
 
 #include <stdexcept>
 
+/**
+ * @brief Firmware updater errors definition.
+ */
 class FwupdateError : public std::runtime_error
 {
   public:

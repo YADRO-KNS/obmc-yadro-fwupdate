@@ -7,6 +7,9 @@
 
 #include "fwupdbase.hpp"
 
+/**
+ * @brief OpenPOWER firmware updater.
+ */
 struct OpenPowerUpdater : public FwUpdBase
 {
     using FwUpdBase::FwUpdBase;

@@ -10,6 +10,9 @@
 #include <memory>
 #include <vector>
 
+/**
+ * @brief General firmware updater implementation.
+ */
 struct FwUpdate
 {
     FwUpdate(const FwUpdate&) = delete;

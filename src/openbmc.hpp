@@ -5,6 +5,9 @@
 
 #include "fwupdbase.hpp"
 
+/**
+ * @brief OpenBMC firmware updater.
+ */
 struct OpenBmcUpdater : public FwUpdBase
 {
     using FwUpdBase::FwUpdBase;
