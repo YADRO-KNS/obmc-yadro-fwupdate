@@ -11,7 +11,6 @@
 #include "openbmc.hpp"
 #include "signature.hpp"
 #include "subprocess.hpp"
-#include "tags.hpp"
 #include "tracer.hpp"
 
 #ifdef OPENPOWER_SUPPORT
@@ -19,7 +18,14 @@
 #endif
 
 #include <cstring>
+#include <fstream>
+#include <regex>
 
+/**
+ * @brief Create temporary directory
+ *
+ * @return - Path to the new temporary directory
+ */
 static fs::path create_tmp_dir()
 {
     std::string dir(fs::temp_directory_path() / "fwupdateXXXXXX");
@@ -29,6 +35,46 @@ static fs::path create_tmp_dir()
                             strerror(errno));
     }
     return dir;
+}
+
+static const std::regex cfgLine("^\\s*([a-z0-9_]+)\\s*=\\s*\"?([^\"]+)\"?\\s*$",
+                                std::regex::icase);
+
+/**
+ * @brief Get value of the key from specified config file
+ *
+ * @param file - path to the config file
+ * @param key  - the key name
+ *
+ * @return - value of the key
+ */
+static std::string get_cfg_value(const fs::path& file, const std::string& key)
+{
+    std::string ret;
+    std::ifstream efile;
+    efile.exceptions(std::ifstream::failbit | std::ifstream::badbit |
+                     std::ifstream::eofbit);
+    try
+    {
+        std::string line;
+        std::smatch match;
+        efile.open(file);
+        while (std::getline(efile, line))
+        {
+            if (std::regex_match(line, match, cfgLine) && match[1].str() == key)
+            {
+                ret = match[2].str();
+                break;
+            }
+        }
+        efile.close();
+    }
+    catch (const std::ios_base::failure&)
+    {
+        efile.close();
+    }
+
+    return ret;
 }
 
 FwUpdate::FwUpdate(bool with_lock) :
@@ -147,7 +193,7 @@ void FwUpdate::system_level_verify()
         {
             auto publicKey(p.path() / PUBLICKEY_FILE_NAME);
             auto hashFunc =
-                get_tag_value(p.path() / HASH_FILE_NAME, "HashType");
+                get_cfg_value(p.path() / HASH_FILE_NAME, "HashType");
 
             try
             {
@@ -182,7 +228,7 @@ void FwUpdate::system_level_verify()
 void FwUpdate::check_machine_type()
 {
     auto currentMachine =
-        get_tag_value(OS_RELEASE_FILE, "OPENBMC_TARGET_MACHINE");
+        get_cfg_value(OS_RELEASE_FILE, "OPENBMC_TARGET_MACHINE");
     if (currentMachine.empty())
     {
         // We are running on an old BMC version.
@@ -194,7 +240,7 @@ void FwUpdate::check_machine_type()
         Tracer tracer("Check target machine type");
 
         auto manifestFile = get_fw_file(MANIFEST_FILE_NAME);
-        auto targetMachine = get_tag_value(manifestFile, "MachineName");
+        auto targetMachine = get_cfg_value(manifestFile, "MachineName");
         if (currentMachine != targetMachine)
         {
             throw FwupdateError("Frimware package is not compatible with this "
@@ -212,7 +258,7 @@ void FwUpdate::verify()
 
     auto publicKeyFile = get_fw_file(PUBLICKEY_FILE_NAME);
     auto manifestFile = get_fw_file(MANIFEST_FILE_NAME);
-    auto hashFunc = get_tag_value(manifestFile, "HashType");
+    auto hashFunc = get_cfg_value(manifestFile, "HashType");
 
     for (auto& updater : updaters)
     {

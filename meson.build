@@ -17,7 +17,6 @@ fwupdate_sources = [
     'src/openbmc.cpp',
     'src/signature.cpp',
     'src/subprocess.cpp',
-    'src/tags.cpp',
 ]
 
 conf = configuration_data()
