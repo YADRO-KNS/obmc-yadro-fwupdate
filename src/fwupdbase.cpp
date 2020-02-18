@@ -13,7 +13,7 @@ FwUpdBase::FwUpdBase(const fs::path& tmpdir) : tmpdir(tmpdir)
 
 bool FwUpdBase::add(const fs::path& file)
 {
-    bool ret = fs::is_regular_file(file) && is_file_belongs(file);
+    bool ret = fs::is_regular_file(file) && is_file_belong(file);
     if (ret)
     {
         files.emplace_back(file);

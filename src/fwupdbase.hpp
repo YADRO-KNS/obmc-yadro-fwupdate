@@ -31,7 +31,7 @@ struct FwUpdBase : public FwUpdIFace
     /**
      * @brief Check if specified file belongs to this firmware type.
      */
-    virtual bool is_file_belongs(const fs::path& file) const = 0;
+    virtual bool is_file_belong(const fs::path& file) const = 0;
 
     /**
      * @brief Will be called before installation procedure

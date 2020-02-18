@@ -221,7 +221,7 @@ bool OpenPowerUpdater::do_after_install(bool reset)
     return false;
 }
 
-bool OpenPowerUpdater::is_file_belongs(const fs::path& file) const
+bool OpenPowerUpdater::is_file_belong(const fs::path& file) const
 {
     return file.extension() == ".pnor";
 }

@@ -79,7 +79,7 @@ bool OpenBmcUpdater::do_after_install(bool reset)
     return installed;
 }
 
-bool OpenBmcUpdater::is_file_belongs(const fs::path& file) const
+bool OpenBmcUpdater::is_file_belong(const fs::path& file) const
 {
     static const std::regex image("^image-(bmc|kernel|rofs|rwfs|u-boot)$");
     return std::regex_match(file.filename().string(), image);

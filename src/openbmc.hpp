@@ -14,7 +14,7 @@ struct OpenBmcUpdater : public FwUpdBase
     void reset() override;
     void do_install(const fs::path& file) override;
     bool do_after_install(bool reset) override;
-    bool is_file_belongs(const fs::path& file) const override;
+    bool is_file_belong(const fs::path& file) const override;
 
   private:
     bool locked = false;
