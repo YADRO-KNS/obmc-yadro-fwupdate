@@ -11,8 +11,9 @@
  * @brief Check wait status and throw exception if child failed.
  *
  * @param wstatus - status returned by pclose()/system()/waitpid().
+ * @param output  - last command output to include in exception message.
  */
-void check_wait_status(int wstatus);
+void check_wait_status(int wstatus, const std::string& output);
 
 /**
  * @brief Execute the external command.

@@ -66,11 +66,7 @@ static BusName hiomapd()
         try
         {
             auto objs = getObjects(HIOMAPD_PATH, {HIOMAPD_IFACE});
-            for (auto& obj : objs)
-            {
-                hiomapdBus = std::move(obj.first);
-                break;
-            }
+            hiomapdBus = objs.begin()->first;
         }
         catch (const std::runtime_error&)
         {
@@ -158,42 +154,44 @@ void OpenPowerUpdater::reset()
         fprintf(stdout, "NOTE: No partitions found the PNOR flash!\n");
     }
 
-    try
+    for (auto p : partitions)
     {
-        for (auto p : partitions)
-        {
-            Tracer tracer("Clear %s partition [%s]", p.first.c_str(),
-                          p.second ? "ECC" : "Erase");
-            std::ignore = exec("%s -P %s -%c -f &>/dev/null", PFLASH_CMD,
-                               p.first.c_str(), p.second ? 'c' : 'e');
-            tracer.done();
-        }
-    }
-    catch (...)
-    {
-        throw FwupdateError("Failed to reset PNOR flash.");
+        Tracer tracer("Clear %s partition [%s]", p.first.c_str(),
+                      p.second ? "ECC" : "Erase");
+        std::ignore = exec("%s -P %s -%c -f 2>&1", PFLASH_CMD, p.first.c_str(),
+                           p.second ? 'c' : 'e');
+        tracer.done();
     }
 }
+
+static const std::vector<std::string> partsToPreserve = {
+    "NVRAM",
+};
 
 void OpenPowerUpdater::do_before_install(bool reset)
 {
     if (!files.empty() && !reset)
     {
-        Tracer tracer("Preserve NVRAM configuration");
-
-        auto nvram(tmpdir / "nvram.bin");
-        std::ignore =
-            exec("%s -P NVRAM -r %s &>/dev/null", PFLASH_CMD, nvram.c_str());
-
-        if (!fs::exists(nvram))
+        for (const auto& part : partsToPreserve)
         {
-            tracer.fail();
-            fprintf(stdout, "NOTE: Preserving NVRAM failed, "
-                            "default settings will be used.\n");
-        }
-        else
-        {
-            tracer.done();
+            Tracer tracer("Preserve %s configuration", part.c_str());
+
+            auto partFile(tmpdir / part);
+            std::ignore = exec("%s -P %s -r %s 2>&1", PFLASH_CMD, part.c_str(),
+                               partFile.c_str());
+
+            if (!fs::exists(partFile))
+            {
+                tracer.fail();
+                fprintf(stdout,
+                        "NOTE: Preserving %s failed, default settings will be "
+                        "used.\n",
+                        part.c_str());
+            }
+            else
+            {
+                tracer.done();
+            }
         }
     }
 }
@@ -205,18 +203,24 @@ void OpenPowerUpdater::do_install(const fs::path& file)
     fprintf(stdout, "Writing %s ... \n", file.filename().c_str());
     fflush(stdout);
     int rc = system(strfmt("%s -f -E -p %s", PFLASH_CMD, file.c_str()).c_str());
-    check_wait_status(rc);
+    check_wait_status(rc, "");
 }
 
 bool OpenPowerUpdater::do_after_install(bool reset)
 {
-    auto nvram(tmpdir / "nvram.bin");
-    if (!reset && fs::exists(nvram) && !files.empty())
+    if (!reset && !files.empty())
     {
-        Tracer tracer("Recover NVRAM configuration");
-        std::ignore =
-            exec("%s -f -e -P NVRAM -p %s", PFLASH_CMD, nvram.c_str());
-        tracer.done();
+        for (const auto& part : partsToPreserve)
+        {
+            auto partFile(tmpdir / part);
+            if (fs::exists(partFile))
+            {
+                Tracer tracer("Recover %s configuration", part.c_str());
+                std::ignore = exec("%s -f -e -P %s -p %s 2>&1", PFLASH_CMD,
+                                   part.c_str(), partFile.c_str());
+                tracer.done();
+            }
+        }
     }
     return false;
 }
