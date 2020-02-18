@@ -58,7 +58,7 @@ PartsMap getPartsToClear()
 /**
  * @brief Get HIOMPAD bus name.
  */
-static BusName hiomapd(void)
+static BusName hiomapd()
 {
     static BusName hiomapdBus;
     if (hiomapdBus.empty())
@@ -89,7 +89,7 @@ static BusName hiomapd(void)
 /**
  * @brief Get actual state of HIOMAPD.
  */
-static uint8_t hiomapd_daemon_state(void)
+static uint8_t hiomapd_daemon_state()
 {
     return getProperty<uint8_t>(hiomapd(), HIOMAPD_PATH, HIOMAPD_IFACE,
                                 "DaemonState");
@@ -110,7 +110,7 @@ static bool is_chassis_on()
     return state != CHASSIS_STATE_OFF;
 }
 
-void OpenPowerUpdater::lock(void)
+void OpenPowerUpdater::lock()
 {
     Tracer tracer("Suspending HIOMAPD");
 
@@ -134,7 +134,7 @@ void OpenPowerUpdater::lock(void)
     tracer.done();
 }
 
-void OpenPowerUpdater::unlock(void)
+void OpenPowerUpdater::unlock()
 {
     if (locked)
     {
@@ -150,7 +150,7 @@ void OpenPowerUpdater::unlock(void)
     }
 }
 
-void OpenPowerUpdater::reset(void)
+void OpenPowerUpdater::reset()
 {
     auto partitions = getPartsToClear();
     if (partitions.empty())

@@ -11,9 +11,9 @@ struct OpenPowerUpdater : public FwUpdBase
 {
     using FwUpdBase::FwUpdBase;
 
-    void lock(void) override;
-    void unlock(void) override;
-    void reset(void) override;
+    void lock() override;
+    void unlock() override;
+    void reset() override;
     void do_before_install(bool reset) override;
     void do_install(const fs::path& file) override;
     bool do_after_install(bool reset) override;

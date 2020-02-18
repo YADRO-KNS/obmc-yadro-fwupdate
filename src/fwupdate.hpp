@@ -27,7 +27,7 @@ struct FwUpdate
     /**
      * @brief Reset all settings to manufacture default.
      */
-    void reset(void);
+    void reset();
 
     /**
      * @brief Unpack bundle package.
@@ -39,7 +39,7 @@ struct FwUpdate
     /**
      * @brief Verify signature of firmware package
      */
-    void verify(void);
+    void verify();
 
     /**
      * @brief Install firmware
@@ -53,12 +53,12 @@ struct FwUpdate
     /**
      * @brief Enable guards for all firmware types
      */
-    void lock(void);
+    void lock();
 
     /**
      * @brief Disable guards for all firmware types
      */
-    void unlock(void);
+    void unlock();
 
     /**
      * @brief Add specified file to updater implementations
@@ -78,12 +78,12 @@ struct FwUpdate
      * @brief Verify the MANIFEST and publickey file using available public keys
      *        and hash on the system.
      */
-    void system_level_verify(void);
+    void system_level_verify();
 
     /**
      * @brief Compare system and package machine types.
      */
-    void check_machine_type(void);
+    void check_machine_type();
 
   private:
     fs::path tmpdir;

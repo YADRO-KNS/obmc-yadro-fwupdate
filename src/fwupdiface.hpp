@@ -19,17 +19,17 @@ struct FwUpdIFace
     /**
      * @brief Enable firmware guard
      */
-    virtual void lock(void) = 0;
+    virtual void lock() = 0;
 
     /**
      * @brief Disable firmware guard
      */
-    virtual void unlock(void) = 0;
+    virtual void unlock() = 0;
 
     /**
      * @brief Reset settings to manufacture default.
      */
-    virtual void reset(void) = 0;
+    virtual void reset() = 0;
 
     /**
      * @brief Add firmware file

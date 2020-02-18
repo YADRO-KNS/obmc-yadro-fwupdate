@@ -129,7 +129,7 @@ fs::path FwUpdate::get_fw_file(const std::string& filename)
     return ret;
 }
 
-void FwUpdate::system_level_verify(void)
+void FwUpdate::system_level_verify()
 {
     Tracer tracer("Check signature of firmware package");
 
@@ -179,7 +179,7 @@ void FwUpdate::system_level_verify(void)
     tracer.done();
 }
 
-void FwUpdate::check_machine_type(void)
+void FwUpdate::check_machine_type()
 {
     auto currentMachine =
         get_tag_value(OS_RELEASE_FILE, "OPENBMC_TARGET_MACHINE");
@@ -205,7 +205,7 @@ void FwUpdate::check_machine_type(void)
     }
 }
 
-void FwUpdate::verify(void)
+void FwUpdate::verify()
 {
     system_level_verify();
     check_machine_type();

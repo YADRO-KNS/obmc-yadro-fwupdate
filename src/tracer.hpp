@@ -47,7 +47,7 @@ struct Tracer
     /**
      * @brief Complete task with state 'success'
      */
-    void done(void)
+    void done()
     {
         complete(" OK ", COLOR_GREEN);
     }
@@ -55,7 +55,7 @@ struct Tracer
     /**
      * @brief Complete trace with status 'fail'
      */
-    void fail(void)
+    void fail()
     {
         complete("FAIL", COLOR_RED);
     }
@@ -72,7 +72,7 @@ struct Tracer
     /**
      * @return True if terminal is interactive.
      */
-    bool is_tty(void) const
+    bool is_tty() const
     {
         static const bool tty = isatty(fileno(stdout));
         return tty;
