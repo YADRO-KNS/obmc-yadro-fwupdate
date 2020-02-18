@@ -77,8 +77,7 @@ static std::string get_cfg_value(const fs::path& file, const std::string& key)
     return ret;
 }
 
-FwUpdate::FwUpdate(bool with_lock) :
-    tmpdir(create_tmp_dir()), with_lock(with_lock)
+FwUpdate::FwUpdate(bool force) : tmpdir(create_tmp_dir()), force(force)
 {
 #ifdef OPENPOWER_SUPPORT
     updaters.emplace_back(std::make_unique<OpenPowerUpdater>(tmpdir));
@@ -102,7 +101,7 @@ FwUpdate::~FwUpdate()
 
 void FwUpdate::lock()
 {
-    if (with_lock)
+    if (!force)
     {
         for (auto it = updaters.rbegin(); it != updaters.rend(); ++it)
         {

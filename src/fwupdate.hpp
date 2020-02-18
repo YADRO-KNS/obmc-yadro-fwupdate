@@ -21,9 +21,9 @@ struct FwUpdate
     /**
      * @brief FwUpdate object constructor
      *
-     * @param with_lock - flag to use guards
+     * @param force - flag to skip locking
      */
-    FwUpdate(bool with_lock);
+    FwUpdate(bool force);
 
     ~FwUpdate();
 
@@ -90,6 +90,6 @@ struct FwUpdate
 
   private:
     fs::path tmpdir;
-    bool with_lock;
+    bool force;
     std::vector<std::unique_ptr<FwUpdIFace>> updaters;
 };
