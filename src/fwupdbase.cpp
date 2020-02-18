@@ -3,14 +3,15 @@
  * Copyright (C) 2020 YADRO.
  */
 
-#include "firmware.hpp"
+#include "fwupdbase.hpp"
+
 #include "signature.hpp"
 
-UpdaterBase::UpdaterBase(const fs::path& tmpdir) : tmpdir(tmpdir)
+FwUpdBase::FwUpdBase(const fs::path& tmpdir) : tmpdir(tmpdir)
 {
 }
 
-bool UpdaterBase::add(const fs::path& file)
+bool FwUpdBase::add(const fs::path& file)
 {
     bool ret = fs::is_regular_file(file) && is_file_belongs(file);
     if (ret)
@@ -20,7 +21,7 @@ bool UpdaterBase::add(const fs::path& file)
     return ret;
 }
 
-void UpdaterBase::verify(const fs::path& publicKey, const std::string& hashFunc)
+void FwUpdBase::verify(const fs::path& publicKey, const std::string& hashFunc)
 {
     for (const auto& file : files)
     {
@@ -28,7 +29,7 @@ void UpdaterBase::verify(const fs::path& publicKey, const std::string& hashFunc)
     }
 }
 
-bool UpdaterBase::install(bool reset)
+bool FwUpdBase::install(bool reset)
 {
     do_before_install(reset);
 

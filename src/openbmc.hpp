@@ -3,11 +3,11 @@
  * Copyright (C) 2020 YADRO.
  */
 
-#include "firmware.hpp"
+#include "fwupdbase.hpp"
 
-struct OpenBmcUpdater : public UpdaterBase
+struct OpenBmcUpdater : public FwUpdBase
 {
-    using UpdaterBase::UpdaterBase;
+    using FwUpdBase::FwUpdBase;
 
     void lock(void) override;
     void unlock(void) override;

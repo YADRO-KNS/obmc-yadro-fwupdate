@@ -5,11 +5,11 @@
 
 #pragma once
 
-#include "firmware.hpp"
+#include "fwupdbase.hpp"
 
-struct OpenPowerUpdater : public UpdaterBase
+struct OpenPowerUpdater : public FwUpdBase
 {
-    using UpdaterBase::UpdaterBase;
+    using FwUpdBase::FwUpdBase;
 
     void lock(void) override;
     void unlock(void) override;

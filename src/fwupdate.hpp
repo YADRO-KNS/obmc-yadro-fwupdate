@@ -5,7 +5,7 @@
 
 #pragma once
 
-#include "firmware.hpp"
+#include "fwupdiface.hpp"
 
 #include <memory>
 #include <vector>
@@ -88,5 +88,5 @@ struct FwUpdate
   private:
     fs::path tmpdir;
     bool with_lock;
-    std::vector<std::unique_ptr<UpdaterIFace>> updaters;
+    std::vector<std::unique_ptr<FwUpdIFace>> updaters;
 };
