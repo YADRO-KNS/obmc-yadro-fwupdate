@@ -36,6 +36,16 @@ option('reboot-guard-disable', type: 'string',
 option('openpower-support', type: 'boolean', value: true,
        description: 'Enable support for OpenPOWER firmwares')
 
+option('chassis-state-path', type: 'string',
+       value: '/xyz/openbmc_project/state/chassis0',
+       description: 'The chassis state path.')
+option('chassis-state-iface', type: 'string',
+       value: 'xyz.openbmc_project.State.Chassis',
+       description: 'The chassis state interface.')
+option('chassis-state-off', type: 'string',
+       value: 'xyz.openbmc_project.State.Chassis.PowerState.Off',
+       description: 'The chassis state off property value.')
+
 option('hiomapd-path', type: 'string',
        value: '/xyz/openbmc_project/Hiomapd',
        description: 'The hiomapd object path.')

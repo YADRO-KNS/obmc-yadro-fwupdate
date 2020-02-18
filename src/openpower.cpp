@@ -98,9 +98,29 @@ static uint8_t hiomapd_daemon_state(void)
                                       "DaemonState");
 }
 
+/**
+ * @brief Check whether the host is running
+ *
+ * @return - true if the Chassis is powered on
+ */
+static bool is_chassis_on()
+{
+    auto objs = dbus::getObjects(CHASSIS_STATE_PATH, {CHASSIS_STATE_IFACE});
+    auto state = dbus::getProperty<std::string>(
+        objs.begin()->first, CHASSIS_STATE_PATH, CHASSIS_STATE_IFACE,
+        "CurrentPowerState");
+
+    return state != CHASSIS_STATE_OFF;
+}
+
 void OpenPowerUpdater::lock(void)
 {
     Tracer tracer("Suspending HIOMAPD");
+
+    if (is_chassis_on())
+    {
+        throw FwupdateError("The host is running now, operation cancelled");
+    }
 
     if (hiomapd_daemon_state() == 0)
     {
