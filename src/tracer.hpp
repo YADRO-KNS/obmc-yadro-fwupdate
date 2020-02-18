@@ -8,6 +8,9 @@
 #include <unistd.h>
 
 #include <cstdio>
+#include <cstring>
+
+constexpr auto TITLE_WIDTH = 40;
 
 /**
  * @brief RAII task tracer.
@@ -16,6 +19,7 @@
  */
 struct Tracer
 {
+
     Tracer() = delete;
     Tracer(const Tracer&) = delete;
     Tracer& operator=(const Tracer&) = delete;
@@ -29,13 +33,14 @@ struct Tracer
     template <typename... Args>
     Tracer(const char* fmt, Args&&... args)
     {
-        fprintf(stdout, fmt, std::forward<Args>(args)...);
-        fprintf(stdout, " ... ");
+        int offset = fprintf(stdout, fmt, std::forward<Args>(args)...);
+        fprintf(stdout, " %*s ", offset - TITLE_WIDTH, "...");
         fflush(stdout);
     }
     Tracer(const char* msg)
     {
-        fprintf(stdout, "%s ... ", msg);
+        int offset = strlen(msg);
+        fprintf(stdout, "%s %*s ", msg, offset - TITLE_WIDTH, "...");
         fflush(stdout);
     }
 
