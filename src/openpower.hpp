@@ -7,10 +7,6 @@
 
 #include "firmware.hpp"
 
-namespace openpower
-{
-using namespace firmware;
-
 struct OpenPowerUpdater : public UpdaterBase
 {
     using UpdaterBase::UpdaterBase;
@@ -26,5 +22,3 @@ struct OpenPowerUpdater : public UpdaterBase
   private:
     bool locked = false;
 };
-
-} // namespace openpower

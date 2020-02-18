@@ -6,9 +6,6 @@
 #include "firmware.hpp"
 #include "signature.hpp"
 
-namespace firmware
-{
-
 UpdaterBase::UpdaterBase(const fs::path& tmpdir) : tmpdir(tmpdir)
 {
 }
@@ -42,5 +39,3 @@ bool UpdaterBase::install(bool reset)
 
     return do_after_install(reset);
 }
-
-} // namespace firmware

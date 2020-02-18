@@ -15,9 +15,6 @@
 #include <map>
 #include <regex>
 
-namespace openpower
-{
-
 // Map of PNOR partitions as partition name -> flag is it should use ECC clear
 using PartsMap = std::map<std::string, bool>;
 
@@ -55,38 +52,38 @@ PartsMap getPartsToClear(const std::string& info)
 // Get partitions that should be cleared
 PartsMap getPartsToClear()
 {
-    return getPartsToClear(subprocess::exec("%s -i 2>/dev/null", PFLASH_CMD));
+    return getPartsToClear(exec("%s -i 2>/dev/null", PFLASH_CMD));
 }
 
 /**
  * @brief Get HIOMPAD bus name.
  */
-static dbus::BusName hiomapd(void)
+static BusName hiomapd(void)
 {
-    static dbus::BusName bus;
-    if (bus.empty())
+    static BusName hiomapdBus;
+    if (hiomapdBus.empty())
     {
         try
         {
-            auto objs = dbus::getObjects(HIOMAPD_PATH, {HIOMAPD_IFACE});
+            auto objs = getObjects(HIOMAPD_PATH, {HIOMAPD_IFACE});
             for (auto& obj : objs)
             {
-                bus = std::move(obj.first);
+                hiomapdBus = std::move(obj.first);
                 break;
             }
         }
         catch (const std::runtime_error&)
         {
-            bus.clear();
+            hiomapdBus.clear();
         }
 
-        if (bus.empty())
+        if (hiomapdBus.empty())
         {
             throw FwupdateError("No hiomapd service found");
         }
     }
 
-    return bus;
+    return hiomapdBus;
 }
 
 /**
@@ -94,8 +91,8 @@ static dbus::BusName hiomapd(void)
  */
 static uint8_t hiomapd_daemon_state(void)
 {
-    return dbus::getProperty<uint8_t>(hiomapd(), HIOMAPD_PATH, HIOMAPD_IFACE,
-                                      "DaemonState");
+    return getProperty<uint8_t>(hiomapd(), HIOMAPD_PATH, HIOMAPD_IFACE,
+                                "DaemonState");
 }
 
 /**
@@ -105,10 +102,10 @@ static uint8_t hiomapd_daemon_state(void)
  */
 static bool is_chassis_on()
 {
-    auto objs = dbus::getObjects(CHASSIS_STATE_PATH, {CHASSIS_STATE_IFACE});
-    auto state = dbus::getProperty<std::string>(
-        objs.begin()->first, CHASSIS_STATE_PATH, CHASSIS_STATE_IFACE,
-        "CurrentPowerState");
+    auto objs = getObjects(CHASSIS_STATE_PATH, {CHASSIS_STATE_IFACE});
+    auto state =
+        getProperty<std::string>(objs.begin()->first, CHASSIS_STATE_PATH,
+                                 CHASSIS_STATE_IFACE, "CurrentPowerState");
 
     return state != CHASSIS_STATE_OFF;
 }
@@ -124,9 +121,9 @@ void OpenPowerUpdater::lock(void)
 
     if (hiomapd_daemon_state() == 0)
     {
-        auto req = dbus::bus.new_method_call(hiomapd().c_str(), HIOMAPD_PATH,
+        auto req = systemBus.new_method_call(hiomapd().c_str(), HIOMAPD_PATH,
                                              HIOMAPD_IFACE, "Suspend");
-        dbus::bus.call(req);
+        systemBus.call(req);
         locked = true;
     }
     else
@@ -143,10 +140,10 @@ void OpenPowerUpdater::unlock(void)
     {
         Tracer tracer("Resuming HIOMAPD");
 
-        auto req = dbus::bus.new_method_call(hiomapd().c_str(), HIOMAPD_PATH,
+        auto req = systemBus.new_method_call(hiomapd().c_str(), HIOMAPD_PATH,
                                              HIOMAPD_IFACE, "Resume");
         req.append(true);
-        dbus::bus.call(req);
+        systemBus.call(req);
         locked = false;
 
         tracer.done();
@@ -167,9 +164,8 @@ void OpenPowerUpdater::reset(void)
         {
             Tracer tracer("Clear %s partition [%s]", p.first.c_str(),
                           p.second ? "ECC" : "Erase");
-            std::ignore =
-                subprocess::exec("%s -P %s -%c -f &>/dev/null", PFLASH_CMD,
-                                 p.first.c_str(), p.second ? 'c' : 'e');
+            std::ignore = exec("%s -P %s -%c -f &>/dev/null", PFLASH_CMD,
+                               p.first.c_str(), p.second ? 'c' : 'e');
             tracer.done();
         }
     }
@@ -186,8 +182,8 @@ void OpenPowerUpdater::do_before_install(bool reset)
         Tracer tracer("Preserve NVRAM configuration");
 
         auto nvram(tmpdir / "nvram.bin");
-        std::ignore = subprocess::exec("%s -P NVRAM -r %s &>/dev/null",
-                                       PFLASH_CMD, nvram.c_str());
+        std::ignore =
+            exec("%s -P NVRAM -r %s &>/dev/null", PFLASH_CMD, nvram.c_str());
 
         if (!fs::exists(nvram))
         {
@@ -209,7 +205,7 @@ void OpenPowerUpdater::do_install(const fs::path& file)
     fprintf(stdout, "Writing %s ... \n", file.filename().c_str());
     fflush(stdout);
     int rc = system(strfmt("%s -f -E -p %s", PFLASH_CMD, file.c_str()).c_str());
-    subprocess::check_wait_status(rc);
+    check_wait_status(rc);
 }
 
 bool OpenPowerUpdater::do_after_install(bool reset)
@@ -218,8 +214,8 @@ bool OpenPowerUpdater::do_after_install(bool reset)
     if (!reset && fs::exists(nvram) && !files.empty())
     {
         Tracer tracer("Recover NVRAM configuration");
-        std::ignore = subprocess::exec("%s -f -e -P NVRAM -p %s", PFLASH_CMD,
-                                       nvram.c_str());
+        std::ignore =
+            exec("%s -f -e -P NVRAM -p %s", PFLASH_CMD, nvram.c_str());
         tracer.done();
     }
     return false;
@@ -229,5 +225,3 @@ bool OpenPowerUpdater::is_file_belongs(const fs::path& file) const
 {
     return file.extension() == ".pnor";
 }
-
-} // namespace openpower

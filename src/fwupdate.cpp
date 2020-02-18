@@ -20,9 +20,6 @@
 
 #include <cstring>
 
-namespace firmware
-{
-
 static fs::path create_tmp_dir()
 {
     std::string dir(fs::temp_directory_path() / "fwupdateXXXXXX");
@@ -38,10 +35,9 @@ FwUpdate::FwUpdate(bool with_lock) :
     tmpdir(create_tmp_dir()), with_lock(with_lock)
 {
 #ifdef OPENPOWER_SUPPORT
-    updaters.emplace_back(
-        std::make_unique<openpower::OpenPowerUpdater>(tmpdir));
+    updaters.emplace_back(std::make_unique<OpenPowerUpdater>(tmpdir));
 #endif
-    updaters.emplace_back(std::make_unique<openbmc::OpenBmcUpdater>(tmpdir));
+    updaters.emplace_back(std::make_unique<OpenBmcUpdater>(tmpdir));
 }
 
 FwUpdate::~FwUpdate()
@@ -111,8 +107,8 @@ void FwUpdate::unpack(const fs::path& path)
     {
         Tracer tracer("Unpack firmware package");
 
-        std::ignore = subprocess::exec("tar -xzf %s -C %s 2>/dev/null",
-                                       path.c_str(), tmpdir.c_str());
+        std::ignore =
+            exec("tar -xzf %s -C %s 2>/dev/null", path.c_str(), tmpdir.c_str());
 
         for (const auto& it : fs::directory_iterator(tmpdir))
         {
@@ -240,5 +236,3 @@ bool FwUpdate::install(bool reset)
 
     return ret;
 }
-
-} // namespace firmware

@@ -7,9 +7,6 @@
 
 #include "strfmt.hpp"
 
-namespace subprocess
-{
-
 /**
  * @brief Check wait status and throw exception if child failed.
  *
@@ -31,5 +28,3 @@ std::string exec(const char* fmt, Args&&... args)
 {
     return exec(strfmt(fmt, std::forward<Args>(args)...).c_str());
 }
-
-} // namespace subprocess

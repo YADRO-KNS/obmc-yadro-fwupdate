@@ -12,9 +12,6 @@
 #include <cstring>
 #include <sstream>
 
-namespace subprocess
-{
-
 void check_wait_status(int wstatus)
 {
     if (WIFSIGNALED(wstatus))
@@ -61,5 +58,3 @@ std::string exec(const char* cmd)
 
     return result.str();
 }
-
-} // namespace subprocess

@@ -10,9 +10,6 @@
 #include <memory>
 #include <vector>
 
-namespace firmware
-{
-
 struct FwUpdate
 {
     FwUpdate(const FwUpdate&) = delete;
@@ -93,5 +90,3 @@ struct FwUpdate
     bool with_lock;
     std::vector<std::unique_ptr<UpdaterIFace>> updaters;
 };
-
-} // namespace firmware

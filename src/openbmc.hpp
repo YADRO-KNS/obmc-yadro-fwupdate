@@ -5,10 +5,6 @@
 
 #include "firmware.hpp"
 
-namespace openbmc
-{
-using namespace firmware;
-
 struct OpenBmcUpdater : public UpdaterBase
 {
     using UpdaterBase::UpdaterBase;
@@ -23,5 +19,3 @@ struct OpenBmcUpdater : public UpdaterBase
   private:
     bool locked = false;
 };
-
-} // namespace openbmc

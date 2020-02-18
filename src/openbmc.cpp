@@ -18,13 +18,10 @@
 
 #include <regex>
 
-namespace openbmc
-{
-
 void OpenBmcUpdater::lock()
 {
     Tracer tracer("Locking BMC reboot");
-    dbus::startUnit(REBOOT_GUARD_ENABLE);
+    startUnit(REBOOT_GUARD_ENABLE);
     locked = true;
     tracer.done();
 }
@@ -34,7 +31,7 @@ void OpenBmcUpdater::unlock()
     if (locked)
     {
         Tracer tracer("Unocking BMC reboot");
-        dbus::startUnit(REBOOT_GUARD_DISABLE);
+        startUnit(REBOOT_GUARD_DISABLE);
         locked = false;
         tracer.done();
     }
@@ -43,7 +40,7 @@ void OpenBmcUpdater::unlock()
 void OpenBmcUpdater::reset()
 {
     Tracer tracer("Enable the BMC clean");
-    dbus::startUnit(SERVICE_FACTORY_RESET);
+    startUnit(SERVICE_FACTORY_RESET);
     tracer.done();
 }
 
@@ -87,5 +84,3 @@ bool OpenBmcUpdater::is_file_belongs(const fs::path& file) const
     static const std::regex image("^image-(bmc|kernel|rofs|rwfs|u-boot)$");
     return std::regex_match(file.filename().string(), image);
 }
-
-} // namespace openbmc

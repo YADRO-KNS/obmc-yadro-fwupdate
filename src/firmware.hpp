@@ -7,8 +7,6 @@
 #include <filesystem>
 #include <vector>
 
-namespace firmware
-{
 namespace fs = std::filesystem;
 
 struct UpdaterIFace
@@ -105,5 +103,3 @@ struct UpdaterBase : public UpdaterIFace
     Files files;     //! List of firmware files
     fs::path tmpdir; //! Temporary directory
 };
-
-} // namespace firmware

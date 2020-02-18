@@ -29,22 +29,22 @@ namespace fs = std::filesystem;
  */
 static void show_version()
 {
-    auto tree = dbus::getSubTree(SOFTWARE_OBJPATH, {ACTIVATION_IFACE});
+    auto tree = getSubTree(SOFTWARE_OBJPATH, {ACTIVATION_IFACE});
     for (auto& tree_entry : tree)
     {
         for (auto& bus_entry : tree_entry.second)
         {
-            auto activation = dbus::getProperty<std::string>(
-                bus_entry.first, tree_entry.first, ACTIVATION_IFACE,
-                "Activation");
+            auto activation =
+                getProperty<std::string>(bus_entry.first, tree_entry.first,
+                                         ACTIVATION_IFACE, "Activation");
             if (activation != ACTIVATION_IFACE ".Activations.Active")
             {
                 continue;
             }
 
-            auto purpose = dbus::getProperty<std::string>(
+            auto purpose = getProperty<std::string>(
                 bus_entry.first, tree_entry.first, VERSION_IFACE, "Purpose");
-            auto version = dbus::getProperty<std::string>(
+            auto version = getProperty<std::string>(
                 bus_entry.first, tree_entry.first, VERSION_IFACE, "Version");
 
             printf("%-6s  %s   [ID=%s]\n",
@@ -53,7 +53,7 @@ static void show_version()
 
             try
             {
-                auto ext_version = dbus::getProperty<std::string>(
+                auto ext_version = getProperty<std::string>(
                     bus_entry.first, tree_entry.first, EXTENDED_VERSION_IFACE,
                     "ExtendedVersion");
                 size_t begin = 0;
@@ -97,7 +97,7 @@ void reboot(bool interactive)
         if (!manual_reboot)
         {
             Tracer tracer("Reboot BMC system");
-            std::ignore = subprocess::exec("/sbin/reboot");
+            std::ignore = exec("/sbin/reboot");
             tracer.done();
         }
     }
@@ -130,7 +130,7 @@ void reset_firmware(bool interactive, bool with_lock)
         return;
     }
 
-    firmware::FwUpdate fwupdate(with_lock);
+    FwUpdate fwupdate(with_lock);
 
     fwupdate.reset();
 
@@ -172,7 +172,7 @@ void flash_firmware(const fs::path& firmware_file, bool reset, bool interactive,
         }
     }
 
-    firmware::FwUpdate fwupdate(with_lock);
+    FwUpdate fwupdate(with_lock);
     fwupdate.unpack(firmware_file);
 
     if (!skip_sign_check)

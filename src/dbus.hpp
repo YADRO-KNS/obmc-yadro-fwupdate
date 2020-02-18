@@ -11,9 +11,6 @@
 
 #include <sdbusplus/bus.hpp>
 
-namespace dbus
-{
-
 using BusName = std::string;
 using Path = std::string;
 using Interface = std::string;
@@ -55,7 +52,7 @@ void startUnit(const std::string& unitname);
 /**
  * @brief Bus handler singleton
  */
-extern sdbusplus::bus::bus bus;
+extern sdbusplus::bus::bus systemBus;
 
 using PropertyName = std::string;
 
@@ -73,14 +70,14 @@ template <typename PropertyType>
 PropertyType getProperty(const BusName& busname, const Path& path,
                          const Interface& iface, const PropertyName& property)
 {
-    auto req = bus.new_method_call(busname.c_str(), path.c_str(),
-                                   SYSTEMD_PROPERTIES_INTERFACE, "Get");
+    auto req = systemBus.new_method_call(busname.c_str(), path.c_str(),
+                                         SYSTEMD_PROPERTIES_INTERFACE, "Get");
     req.append(iface, property);
     std::variant<PropertyType> value;
 
     try
     {
-        bus.call(req).read(value);
+        systemBus.call(req).read(value);
     }
     catch (const sdbusplus::exception::SdBusError& e)
     {
@@ -89,5 +86,3 @@ PropertyType getProperty(const BusName& busname, const Path& path,
 
     return std::get<PropertyType>(value);
 }
-
-} // namespace dbus
