@@ -20,14 +20,17 @@
 
 void OpenBmcUpdater::lock()
 {
+#ifdef REBOOT_GUARD_SUPPORT
     Tracer tracer("Locking BMC reboot");
     startUnit(REBOOT_GUARD_ENABLE);
     locked = true;
     tracer.done();
+#endif
 }
 
 void OpenBmcUpdater::unlock()
 {
+#ifdef REBOOT_GUARD_SUPPORT
     if (locked)
     {
         Tracer tracer("Unocking BMC reboot");
@@ -35,6 +38,7 @@ void OpenBmcUpdater::unlock()
         locked = false;
         tracer.done();
     }
+#endif
 }
 
 void OpenBmcUpdater::reset()

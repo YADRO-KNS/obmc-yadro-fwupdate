@@ -26,6 +26,8 @@ option('extended-version-iface', type: 'string',
        value: 'xyz.openbmc_project.Software.ExtendedVersion',
        description: 'The software extended version interface.')
 
+option('reboot-guard-support', type: 'boolean', value: false,
+       description: 'Enable support for BMC reboot guard')
 option('reboot-guard-enable', type: 'string',
        value: 'reboot-guard-enable.service',
        description: 'The systemd service to lock the BMC rebooting')

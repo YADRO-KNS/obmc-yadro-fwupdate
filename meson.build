@@ -40,8 +40,13 @@ conf.set_quoted('SYSTEMD_BUSNAME', get_option('systemd-busname'))
 conf.set_quoted('SYSTEMD_PATH', get_option('systemd-path'))
 conf.set_quoted('SYSTEMD_INTERFACE', get_option('systemd-interface'))
 
-conf.set_quoted('REBOOT_GUARD_ENABLE', get_option('reboot-guard-enable'))
-conf.set_quoted('REBOOT_GUARD_DISABLE', get_option('reboot-guard-disable'))
+reboot_guard_support = get_option('reboot-guard-support')
+conf.set('REBOOT_GUARD_SUPPORT', reboot_guard_support)
+
+if reboot_guard_support
+    conf.set_quoted('REBOOT_GUARD_ENABLE', get_option('reboot-guard-enable'))
+    conf.set_quoted('REBOOT_GUARD_DISABLE', get_option('reboot-guard-disable'))
+endif
 
 openpower_support = get_option('openpower-support')
 conf.set('OPENPOWER_SUPPORT', openpower_support)
