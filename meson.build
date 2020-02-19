@@ -86,4 +86,5 @@ executable(
         dependency('openssl'),
     ],
     install: true,
+    install_dir: get_option('sbindir'),
 )
