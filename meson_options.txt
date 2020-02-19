@@ -35,7 +35,7 @@ option('reboot-guard-disable', type: 'string',
        value: 'reboot-guard-disable.service',
        description: 'The systemd service to unlock the BMC rebooting')
 
-option('openpower-support', type: 'boolean', value: true,
+option('openpower-support', type: 'boolean', value: false,
        description: 'Enable support for OpenPOWER firmwares')
 
 option('chassis-state-path', type: 'string',
