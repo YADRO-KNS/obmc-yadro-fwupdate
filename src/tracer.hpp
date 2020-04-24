@@ -5,8 +5,6 @@
 
 #pragma once
 
-#include <unistd.h>
-
 #include <cstdio>
 #include <cstring>
 
@@ -49,7 +47,7 @@ struct Tracer
      */
     void done()
     {
-        complete(" OK ", COLOR_GREEN);
+        complete(" OK ");
     }
 
     /**
@@ -57,7 +55,7 @@ struct Tracer
      */
     void fail()
     {
-        complete("FAIL", COLOR_RED);
+        complete("FAIL");
     }
 
     ~Tracer()
@@ -70,28 +68,14 @@ struct Tracer
 
   private:
     /**
-     * @return True if terminal is interactive.
-     */
-    bool is_tty() const
-    {
-        static const bool tty = isatty(fileno(stdout));
-        return tty;
-    }
-
-    /**
      * @brief Complete trace and print status
      */
-    void complete(const char* status, const char* color)
+    void complete(const char* status)
     {
-        fprintf(stdout, "[%s%s%s]\n", is_tty() ? color : "", status,
-                is_tty() ? COLOR_DEFAULT : "");
+        fprintf(stdout, "[%s]\n", status);
         fflush(stdout);
         completed = true;
     }
 
     bool completed = false;
-
-    static constexpr auto COLOR_RED = "\033[31;1m";
-    static constexpr auto COLOR_GREEN = "\033[32m";
-    static constexpr auto COLOR_DEFAULT = "\033[0m";
 };
