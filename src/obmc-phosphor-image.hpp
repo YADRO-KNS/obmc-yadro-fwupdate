@@ -6,9 +6,9 @@
 #include "fwupdbase.hpp"
 
 /**
- * @brief OpenBMC firmware updater.
+ * @brief OBMCPhosphorImage firmware updater.
  */
-struct OpenBmcUpdater : public FwUpdBase
+struct OBMCPhosphorImageUpdater : public FwUpdBase
 {
     using FwUpdBase::FwUpdBase;
 

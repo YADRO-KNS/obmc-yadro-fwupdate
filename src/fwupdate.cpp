@@ -8,10 +8,13 @@
 #include "fwupdate.hpp"
 
 #include "fwupderr.hpp"
-#include "openbmc.hpp"
 #include "signature.hpp"
 #include "subprocess.hpp"
 #include "tracer.hpp"
+
+#ifdef OBMC_PHOSPHOR_IMAGE
+#include "obmc-phosphor-image.hpp"
+#endif
 
 #ifdef OPENPOWER_SUPPORT
 #include "openpower.hpp"
@@ -82,7 +85,9 @@ FwUpdate::FwUpdate(bool force) : tmpdir(create_tmp_dir()), force(force)
 #ifdef OPENPOWER_SUPPORT
     updaters.emplace_back(std::make_unique<OpenPowerUpdater>(tmpdir));
 #endif
-    updaters.emplace_back(std::make_unique<OpenBmcUpdater>(tmpdir));
+#ifdef OBMC_PHOSPHOR_IMAGE
+    updaters.emplace_back(std::make_unique<OBMCPhosphorImageUpdater>(tmpdir));
+#endif
 }
 
 FwUpdate::~FwUpdate()
