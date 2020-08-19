@@ -5,7 +5,7 @@
 
 #include "config.h"
 
-#include "openbmc.hpp"
+#include "obmc-phosphor-image.hpp"
 
 #include "dbus.hpp"
 #include "fwupderr.hpp"
@@ -18,7 +18,7 @@
 
 #include <regex>
 
-void OpenBmcUpdater::lock()
+void OBMCPhosphorImageUpdater::lock()
 {
 #ifdef REBOOT_GUARD_SUPPORT
     Tracer tracer("Locking BMC reboot");
@@ -28,7 +28,7 @@ void OpenBmcUpdater::lock()
 #endif
 }
 
-void OpenBmcUpdater::unlock()
+void OBMCPhosphorImageUpdater::unlock()
 {
 #ifdef REBOOT_GUARD_SUPPORT
     if (locked)
@@ -41,14 +41,14 @@ void OpenBmcUpdater::unlock()
 #endif
 }
 
-void OpenBmcUpdater::reset()
+void OBMCPhosphorImageUpdater::reset()
 {
     Tracer tracer("Enable the BMC clean");
     startUnit(SERVICE_FACTORY_RESET);
     tracer.done();
 }
 
-void OpenBmcUpdater::do_install(const fs::path& file)
+void OBMCPhosphorImageUpdater::do_install(const fs::path& file)
 {
     Tracer tracer("Install %s", file.filename().c_str());
 
@@ -64,7 +64,7 @@ void OpenBmcUpdater::do_install(const fs::path& file)
     tracer.done();
 }
 
-bool OpenBmcUpdater::do_after_install(bool reset)
+bool OBMCPhosphorImageUpdater::do_after_install(bool reset)
 {
     bool installed = !files.empty();
 
@@ -83,7 +83,7 @@ bool OpenBmcUpdater::do_after_install(bool reset)
     return installed;
 }
 
-bool OpenBmcUpdater::is_file_belong(const fs::path& file) const
+bool OBMCPhosphorImageUpdater::is_file_belong(const fs::path& file) const
 {
     static const std::regex image("^image-(bmc|kernel|rofs|rwfs|u-boot)$");
     return std::regex_match(file.filename().string(), image);

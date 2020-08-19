@@ -83,6 +83,9 @@ option('signed-image-conf-path', type: 'string', value: '/etc/activationdata',
 option('signature-file-ext', type: 'string', value: '.sig',
        description: 'The extension of the Signature file.')
 
+option('bmc-image-type', type: 'combo',
+       choices: [ 'obmc-phosphor-image', 'intel-platforms' ],
+       description: 'The BMC image type')
 option('openbmc-flash-path', type: 'string', value: '/run/initramfs',
        description: 'The path where from the OpenBMC image will be flashed.')
 option('openbmc-whitelist-file-name', type: 'string', value: 'whitelist',

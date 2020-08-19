@@ -14,7 +14,6 @@ fwupdate_sources = [
     'src/fwupdate.cpp',
     'src/fwupdbase.cpp',
     'src/main.cpp',
-    'src/openbmc.cpp',
     'src/signature.cpp',
     'src/subprocess.cpp',
 ]
@@ -70,9 +69,16 @@ conf.set_quoted('HASH_FILE_NAME', get_option('hash-file-name'))
 conf.set_quoted('SIGNED_IMAGE_CONF_PATH', get_option('signed-image-conf-path'))
 conf.set_quoted('SIGNATURE_FILE_EXT', get_option('signature-file-ext'))
 
-conf.set_quoted('OPENBMC_FLASH_PATH', get_option('openbmc-flash-path'))
-conf.set_quoted('OPENBMC_WHITELIST_FILE_NAME',
-                get_option('openbmc-whitelist-file-name'))
+bmc_image_type = get_option('bmc-image-type')
+if bmc_image_type == 'obmc-phosphor-image'
+    conf.set('OBMC_PHOSPHOR_IMAGE', true)
+    conf.set_quoted('OPENBMC_FLASH_PATH', get_option('openbmc-flash-path'))
+    conf.set_quoted('OPENBMC_WHITELIST_FILE_NAME',
+                    get_option('openbmc-whitelist-file-name'))
+    fwupdate_sources += [
+        'src/obmc-phosphor-image.cpp',
+    ]
+endif
 
 configure_file(output: 'config.h', configuration: conf)
 
