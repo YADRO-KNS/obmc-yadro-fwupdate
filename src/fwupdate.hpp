@@ -92,4 +92,5 @@ struct FwUpdate
     fs::path tmpdir;
     bool force;
     std::vector<std::unique_ptr<FwUpdIFace>> updaters;
+    bool locked = false;
 };

@@ -18,29 +18,6 @@
 
 #include <regex>
 
-void OBMCPhosphorImageUpdater::lock()
-{
-#ifdef REBOOT_GUARD_SUPPORT
-    Tracer tracer("Locking BMC reboot");
-    startUnit(REBOOT_GUARD_ENABLE);
-    locked = true;
-    tracer.done();
-#endif
-}
-
-void OBMCPhosphorImageUpdater::unlock()
-{
-#ifdef REBOOT_GUARD_SUPPORT
-    if (locked)
-    {
-        Tracer tracer("Unocking BMC reboot");
-        startUnit(REBOOT_GUARD_DISABLE);
-        locked = false;
-        tracer.done();
-    }
-#endif
-}
-
 void OBMCPhosphorImageUpdater::reset()
 {
     Tracer tracer("Enable the BMC clean");

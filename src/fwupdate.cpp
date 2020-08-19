@@ -7,6 +7,7 @@
 
 #include "fwupdate.hpp"
 
+#include "dbus.hpp"
 #include "fwupderr.hpp"
 #include "signature.hpp"
 #include "subprocess.hpp"
@@ -108,6 +109,13 @@ void FwUpdate::lock()
 {
     if (!force)
     {
+#ifdef REBOOT_GUARD_SUPPORT
+        Tracer tracer("Locking BMC reboot");
+        startUnit(REBOOT_GUARD_ENABLE);
+        locked = true;
+        tracer.done();
+#endif
+
         for (auto it = updaters.rbegin(); it != updaters.rend(); ++it)
         {
             (*it)->lock();
@@ -121,6 +129,16 @@ void FwUpdate::unlock()
     {
         updater->unlock();
     }
+
+#ifdef REBOOT_GUARD_SUPPORT
+    if (locked)
+    {
+        Tracer tracer("Unocking BMC reboot");
+        startUnit(REBOOT_GUARD_DISABLE);
+        locked = false;
+        tracer.done();
+    }
+#endif
 }
 
 void FwUpdate::reset()
