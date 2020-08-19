@@ -8,8 +8,6 @@ project('fwupdate', 'cpp',
 	version: '0.1',
 )
 
-add_project_link_arguments(['-lstdc++fs'], language: 'cpp')
-
 fwupdate_sources = [
     'src/confirm.cpp',
     'src/dbus.cpp',
@@ -84,6 +82,7 @@ executable(
     dependencies: [
         dependency('sdbusplus'),
         dependency('openssl'),
+        meson.get_compiler('cpp').find_library('stdc++fs'),
     ],
     install: true,
 )
