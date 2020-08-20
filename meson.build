@@ -78,6 +78,11 @@ if bmc_image_type == 'obmc-phosphor-image'
     fwupdate_sources += [
         'src/obmc-phosphor-image.cpp',
     ]
+elif bmc_image_type == 'intel-platforms'
+    conf.set('INTEL_PLATFORMS', true)
+    fwupdate_sources += [
+        'src/intel-platforms.cpp',
+    ]
 endif
 
 configure_file(output: 'config.h', configuration: conf)

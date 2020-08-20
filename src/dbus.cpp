@@ -50,3 +50,31 @@ void startUnit(const std::string& unitname)
     req.append(unitname, "replace");
     systemBus.call_noreply(req);
 }
+
+bool isUnitStarted(const std::string& unitname)
+{
+    auto req = systemBus.new_method_call(SYSTEMD_BUSNAME, SYSTEMD_PATH,
+                                         SYSTEMD_INTERFACE, "GetUnit");
+    req.append(unitname);
+    try
+    {
+        systemBus.call_noreply(req);
+    }
+    catch (const sdbusplus::exception::SdBusError&)
+    {
+        return false;
+    }
+
+    return true;
+}
+
+void stopUnit(const std::string& unitname)
+{
+    if (isUnitStarted(unitname))
+    {
+        auto req = systemBus.new_method_call(SYSTEMD_BUSNAME, SYSTEMD_PATH,
+                                             SYSTEMD_INTERFACE, "StopUnit");
+        req.append(unitname, "replace");
+        systemBus.call_noreply(req);
+    }
+}
