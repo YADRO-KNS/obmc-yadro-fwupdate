@@ -45,9 +45,16 @@ ObjectsMap getSubTree(const Path& path, const Interfaces& ifaces,
 /**
  * @brief Start systemd unit.
  *
- * @param unitname - Name of the sustemd unit.
+ * @param unitname - Name of the systemd unit.
  */
 void startUnit(const std::string& unitname);
+
+/**
+ * @brief Stop systemd unit.
+ *
+ * @param unitname - Name of the systemd unit.
+ */
+void stopUnit(const std::string& unitname);
 
 /**
  * @brief Bus handler singleton

@@ -17,6 +17,10 @@
 #include "obmc-phosphor-image.hpp"
 #endif
 
+#ifdef INTEL_PLATFORMS
+#include "intel-platforms.hpp"
+#endif
+
 #ifdef OPENPOWER_SUPPORT
 #include "openpower.hpp"
 #endif
@@ -88,6 +92,9 @@ FwUpdate::FwUpdate(bool force) : tmpdir(create_tmp_dir()), force(force)
 #endif
 #ifdef OBMC_PHOSPHOR_IMAGE
     updaters.emplace_back(std::make_unique<OBMCPhosphorImageUpdater>(tmpdir));
+#endif
+#ifdef INTEL_PLATFORMS
+    updaters.emplace_back(std::make_unique<IntelPlatformsUpdater>(tmpdir));
 #endif
 }
 
