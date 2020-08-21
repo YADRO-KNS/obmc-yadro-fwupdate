@@ -79,14 +79,14 @@ struct MappedMem
 
         auto size = fs::file_size(filePath);
         auto addr = mmap(nullptr, size, PROT_READ, MAP_PRIVATE, fd, 0);
-        auto mmap_errno = errno;
+        auto mmapErrNo = errno;
         close(fd);
 
         if (addr == MAP_FAILED)
         {
             throw FwupdateError("mmap for %s failed, error=%d: %s",
-                                filePath.c_str(), mmap_errno,
-                                strerror(mmap_errno));
+                                filePath.c_str(), mmapErrNo,
+                                strerror(mmapErrNo));
         }
 
         return MappedMem(addr, size);
@@ -118,8 +118,8 @@ RSA* createPublicRSA(const std::string& publicKey)
     return PEM_read_bio_RSA_PUBKEY(keyBio.get(), nullptr, nullptr, nullptr);
 }
 
-bool verify_file(const std::string& keyFile, const std::string& hashFunc,
-                 const std::string& filePath)
+bool verifyFile(const std::string& keyFile, const std::string& hashFunc,
+                const std::string& filePath)
 {
     fs::path fileSig(filePath + SIGNATURE_FILE_EXT);
 

@@ -25,7 +25,7 @@ void OBMCPhosphorImageUpdater::reset()
     tracer.done();
 }
 
-void OBMCPhosphorImageUpdater::do_install(const fs::path& file)
+void OBMCPhosphorImageUpdater::doInstall(const fs::path& file)
 {
     Tracer tracer("Install %s", file.filename().c_str());
 
@@ -41,7 +41,7 @@ void OBMCPhosphorImageUpdater::do_install(const fs::path& file)
     tracer.done();
 }
 
-bool OBMCPhosphorImageUpdater::do_after_install(bool reset)
+bool OBMCPhosphorImageUpdater::doAfterInstall(bool reset)
 {
     bool installed = !files.empty();
 
@@ -60,7 +60,7 @@ bool OBMCPhosphorImageUpdater::do_after_install(bool reset)
     return installed;
 }
 
-bool OBMCPhosphorImageUpdater::is_file_belong(const fs::path& file) const
+bool OBMCPhosphorImageUpdater::isFileFlashable(const fs::path& file) const
 {
     static const std::regex image("^image-(bmc|kernel|rofs|rwfs|u-boot)$");
     return std::regex_match(file.filename().string(), image);

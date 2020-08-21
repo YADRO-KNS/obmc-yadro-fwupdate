@@ -18,5 +18,5 @@
  *
  * @return true if signature is valid
  */
-bool verify_file(const std::string& keyFile, const std::string& hashFunc,
-                 const std::string& filePath);
+bool verifyFile(const std::string& keyFile, const std::string& hashFunc,
+                const std::string& filePath);

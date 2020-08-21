@@ -85,7 +85,7 @@ static BusName hiomapd()
 /**
  * @brief Get actual state of HIOMAPD.
  */
-static uint8_t hiomapd_daemon_state()
+static uint8_t hiomapDaemonState()
 {
     return getProperty<uint8_t>(hiomapd(), HIOMAPD_PATH, HIOMAPD_IFACE,
                                 "DaemonState");
@@ -96,7 +96,7 @@ static uint8_t hiomapd_daemon_state()
  *
  * @return - true if the Chassis is powered on
  */
-static bool is_chassis_on()
+static bool isChassisOn()
 {
     auto objs = getObjects(CHASSIS_STATE_PATH, {CHASSIS_STATE_IFACE});
     auto state =
@@ -110,12 +110,12 @@ void OpenPowerUpdater::lock()
 {
     Tracer tracer("Suspending HIOMAPD");
 
-    if (is_chassis_on())
+    if (isChassisOn())
     {
         throw FwupdateError("The host is running now, operation cancelled");
     }
 
-    if (hiomapd_daemon_state() == 0)
+    if (hiomapDaemonState() == 0)
     {
         auto req = systemBus.new_method_call(hiomapd().c_str(), HIOMAPD_PATH,
                                              HIOMAPD_IFACE, "Suspend");
@@ -168,7 +168,7 @@ static const std::vector<std::string> partsToPreserve = {
     "NVRAM",
 };
 
-void OpenPowerUpdater::do_before_install(bool reset)
+void OpenPowerUpdater::doBeforeInstall(bool reset)
 {
     if (!files.empty() && !reset)
     {
@@ -196,17 +196,17 @@ void OpenPowerUpdater::do_before_install(bool reset)
     }
 }
 
-void OpenPowerUpdater::do_install(const fs::path& file)
+void OpenPowerUpdater::doInstall(const fs::path& file)
 {
     // NOTE: This process may take a lot of time and we want to show the
     //       progress from original pflash output.
     fprintf(stdout, "Writing %s ... \n", file.filename().c_str());
     fflush(stdout);
     int rc = system(strfmt("%s -f -E -p %s", PFLASH_CMD, file.c_str()).c_str());
-    check_wait_status(rc, "");
+    checkWaitStatus(rc, "");
 }
 
-bool OpenPowerUpdater::do_after_install(bool reset)
+bool OpenPowerUpdater::doAfterInstall(bool reset)
 {
     if (!reset && !files.empty())
     {
@@ -225,7 +225,7 @@ bool OpenPowerUpdater::do_after_install(bool reset)
     return false;
 }
 
-bool OpenPowerUpdater::is_file_belong(const fs::path& file) const
+bool OpenPowerUpdater::isFileFlashable(const fs::path& file) const
 {
     return file.extension() == ".pnor";
 }
