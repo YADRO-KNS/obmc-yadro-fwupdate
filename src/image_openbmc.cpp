@@ -5,7 +5,7 @@
 
 #include "config.h"
 
-#include "obmc-phosphor-image.hpp"
+#include "image_openbmc.hpp"
 
 #include "dbus.hpp"
 #include "fwupderr.hpp"

@@ -58,7 +58,7 @@ if openpower_support
     conf.set_quoted('PNOR_FILE_EXT', get_option('pnor-file-ext'))
 
     fwupdate_sources += [
-        'src/openpower.cpp',
+        'src/image_openpower.cpp',
     ]
 endif
 
@@ -76,12 +76,12 @@ if bmc_image_type == 'obmc-phosphor-image'
     conf.set_quoted('OPENBMC_WHITELIST_FILE_NAME',
                     get_option('openbmc-whitelist-file-name'))
     fwupdate_sources += [
-        'src/obmc-phosphor-image.cpp',
+        'src/image_openbmc.cpp',
     ]
 elif bmc_image_type == 'intel-platforms'
     conf.set('INTEL_PLATFORMS', true)
     fwupdate_sources += [
-        'src/intel-platforms.cpp',
+        'src/image_intel.cpp',
     ]
 endif
 

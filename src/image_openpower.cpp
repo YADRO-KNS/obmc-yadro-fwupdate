@@ -5,7 +5,7 @@
 
 #include "config.h"
 
-#include "openpower.hpp"
+#include "image_openpower.hpp"
 
 #include "dbus.hpp"
 #include "fwupderr.hpp"

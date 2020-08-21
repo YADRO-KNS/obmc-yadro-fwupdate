@@ -14,15 +14,15 @@
 #include "tracer.hpp"
 
 #ifdef OBMC_PHOSPHOR_IMAGE
-#include "obmc-phosphor-image.hpp"
+#include "image_openbmc.hpp"
 #endif
 
 #ifdef INTEL_PLATFORMS
-#include "intel-platforms.hpp"
+#include "image_intel.hpp"
 #endif
 
 #ifdef OPENPOWER_SUPPORT
-#include "openpower.hpp"
+#include "image_openpower.hpp"
 #endif
 
 #include <cstring>
