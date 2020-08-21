@@ -34,7 +34,7 @@
  *
  * @return - Path to the new temporary directory
  */
-static fs::path create_tmp_dir()
+static fs::path createTmpDir()
 {
     std::string dir(fs::temp_directory_path() / "fwupdateXXXXXX");
     if (!mkdtemp(dir.data()))
@@ -56,7 +56,7 @@ static const std::regex cfgLine("^\\s*([a-z0-9_]+)\\s*=\\s*\"?([^\"]+)\"?\\s*$",
  *
  * @return - value of the key
  */
-static std::string get_cfg_value(const fs::path& file, const std::string& key)
+static std::string getCfgValue(const fs::path& file, const std::string& key)
 {
     std::string ret;
     std::ifstream efile;
@@ -85,7 +85,7 @@ static std::string get_cfg_value(const fs::path& file, const std::string& key)
     return ret;
 }
 
-FwUpdate::FwUpdate(bool force) : tmpdir(create_tmp_dir()), force(force)
+FwUpdate::FwUpdate(bool force) : tmpdir(createTmpDir()), force(force)
 {
 #ifdef OPENPOWER_SUPPORT
     updaters.emplace_back(std::make_unique<OpenPowerUpdater>(tmpdir));
@@ -158,7 +158,7 @@ void FwUpdate::reset()
     unlock();
 }
 
-bool FwUpdate::add_file(const fs::path& file)
+bool FwUpdate::addFile(const fs::path& file)
 {
     bool ret = false;
 
@@ -178,7 +178,7 @@ bool FwUpdate::add_file(const fs::path& file)
 
 void FwUpdate::unpack(const fs::path& path)
 {
-    if (!add_file(path))
+    if (!addFile(path))
     {
         Tracer tracer("Unpack firmware package");
 
@@ -187,14 +187,14 @@ void FwUpdate::unpack(const fs::path& path)
 
         for (const auto& it : fs::directory_iterator(tmpdir))
         {
-            add_file(it.path());
+            addFile(it.path());
         }
 
         tracer.done();
     }
 }
 
-fs::path FwUpdate::get_fw_file(const std::string& filename)
+fs::path FwUpdate::getFWFile(const std::string& filename)
 {
     fs::path ret(tmpdir / filename);
     if (!fs::exists(ret))
@@ -204,12 +204,12 @@ fs::path FwUpdate::get_fw_file(const std::string& filename)
     return ret;
 }
 
-void FwUpdate::system_level_verify()
+void FwUpdate::systemLevelVerify()
 {
     Tracer tracer("Check signature of firmware package");
 
-    auto manifestFile = get_fw_file(MANIFEST_FILE_NAME);
-    auto publicKeyFile = get_fw_file(PUBLICKEY_FILE_NAME);
+    auto manifestFile = getFWFile(MANIFEST_FILE_NAME);
+    auto publicKeyFile = getFWFile(PUBLICKEY_FILE_NAME);
 
     bool valid = false;
     try
@@ -221,15 +221,14 @@ void FwUpdate::system_level_verify()
         for (const auto& p : fs::directory_iterator(SIGNED_IMAGE_CONF_PATH))
         {
             auto publicKey(p.path() / PUBLICKEY_FILE_NAME);
-            auto hashFunc =
-                get_cfg_value(p.path() / HASH_FILE_NAME, "HashType");
+            auto hashFunc = getCfgValue(p.path() / HASH_FILE_NAME, "HashType");
 
             try
             {
-                valid = verify_file(publicKey, hashFunc, manifestFile);
+                valid = verifyFile(publicKey, hashFunc, manifestFile);
                 if (valid)
                 {
-                    valid = verify_file(publicKey, hashFunc, publicKeyFile);
+                    valid = verifyFile(publicKey, hashFunc, publicKeyFile);
                     if (valid)
                     {
                         break;
@@ -254,10 +253,10 @@ void FwUpdate::system_level_verify()
     tracer.done();
 }
 
-void FwUpdate::check_machine_type()
+void FwUpdate::checkMachineType()
 {
     auto currentMachine =
-        get_cfg_value(OS_RELEASE_FILE, "OPENBMC_TARGET_MACHINE");
+        getCfgValue(OS_RELEASE_FILE, "OPENBMC_TARGET_MACHINE");
     if (currentMachine.empty())
     {
         // We are running on an old BMC version.
@@ -268,8 +267,8 @@ void FwUpdate::check_machine_type()
     {
         Tracer tracer("Check target machine type");
 
-        auto manifestFile = get_fw_file(MANIFEST_FILE_NAME);
-        auto targetMachine = get_cfg_value(manifestFile, "MachineName");
+        auto manifestFile = getFWFile(MANIFEST_FILE_NAME);
+        auto targetMachine = getCfgValue(manifestFile, "MachineName");
         if (currentMachine != targetMachine)
         {
             throw FwupdateError("Frimware package is not compatible with this "
@@ -282,12 +281,12 @@ void FwUpdate::check_machine_type()
 
 void FwUpdate::verify()
 {
-    system_level_verify();
-    check_machine_type();
+    systemLevelVerify();
+    checkMachineType();
 
-    auto publicKeyFile = get_fw_file(PUBLICKEY_FILE_NAME);
-    auto manifestFile = get_fw_file(MANIFEST_FILE_NAME);
-    auto hashFunc = get_cfg_value(manifestFile, "HashType");
+    auto publicKeyFile = getFWFile(PUBLICKEY_FILE_NAME);
+    auto manifestFile = getFWFile(MANIFEST_FILE_NAME);
+    auto hashFunc = getCfgValue(manifestFile, "HashType");
 
     for (auto& updater : updaters)
     {

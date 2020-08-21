@@ -12,7 +12,7 @@
 #include <cstring>
 #include <sstream>
 
-void check_wait_status(int wstatus, const std::string& output)
+void checkWaitStatus(int wstatus, const std::string& output)
 {
     if (WIFSIGNALED(wstatus))
     {
@@ -58,7 +58,7 @@ std::string exec(const char* cmd)
     }
 
     auto output = result.str();
-    check_wait_status(rc, output);
+    checkWaitStatus(rc, output);
 
     return output;
 }

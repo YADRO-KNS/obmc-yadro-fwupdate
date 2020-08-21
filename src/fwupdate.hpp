@@ -70,23 +70,23 @@ struct FwUpdate
      *
      * @return True if file successful added
      */
-    bool add_file(const fs::path& file);
+    bool addFile(const fs::path& file);
 
     /**
      * @brief Create fs::path object and check existense
      */
-    fs::path get_fw_file(const std::string& filename);
+    fs::path getFWFile(const std::string& filename);
 
     /**
      * @brief Verify the MANIFEST and publickey file using available public keys
      *        and hash on the system.
      */
-    void system_level_verify();
+    void systemLevelVerify();
 
     /**
      * @brief Compare system and package machine types.
      */
-    void check_machine_type();
+    void checkMachineType();
 
   private:
     fs::path tmpdir;

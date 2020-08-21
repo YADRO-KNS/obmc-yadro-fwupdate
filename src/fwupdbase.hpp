@@ -29,16 +29,16 @@ struct FwUpdBase : public FwUpdIFace
 
   protected:
     /**
-     * @brief Check if specified file belongs to this firmware type.
+     * @brief Check if specified file can be flashed by this updater instance.
      */
-    virtual bool is_file_belong(const fs::path& file) const = 0;
+    virtual bool isFileFlashable(const fs::path& file) const = 0;
 
     /**
      * @brief Will be called before installation procedure
      *
      * @param reset - flag to reset stored settings
      */
-    virtual void do_before_install(bool /*reset*/)
+    virtual void doBeforeInstall(bool /*reset*/)
     {
     }
 
@@ -47,7 +47,7 @@ struct FwUpdBase : public FwUpdIFace
      *
      * @param file - path to firmware file
      */
-    virtual void do_install(const fs::path& file) = 0;
+    virtual void doInstall(const fs::path& file) = 0;
 
     /**
      * @brief Will be called after success installation
@@ -55,7 +55,7 @@ struct FwUpdBase : public FwUpdIFace
      * @param reset - flag to reset stored settings
      * @return True if reboot required
      */
-    virtual bool do_after_install(bool /*reset*/) = 0;
+    virtual bool doAfterInstall(bool /*reset*/) = 0;
 
     Files files;     //! List of firmware files
     fs::path tmpdir; //! Temporary directory

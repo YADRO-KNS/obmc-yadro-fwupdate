@@ -27,15 +27,15 @@ namespace fs = std::filesystem;
 /**
  * @brief Prints version details of all avtive software objects.
  */
-static void show_version()
+static void showVersion()
 {
     auto tree = getSubTree(SOFTWARE_OBJPATH, {ACTIVATION_IFACE});
-    for (auto& tree_entry : tree)
+    for (auto& treeEntry : tree)
     {
-        for (auto& bus_entry : tree_entry.second)
+        for (auto& busEntry : treeEntry.second)
         {
             auto activation =
-                getProperty<std::string>(bus_entry.first, tree_entry.first,
+                getProperty<std::string>(busEntry.first, treeEntry.first,
                                          ACTIVATION_IFACE, "Activation");
             if (activation != ACTIVATION_IFACE ".Activations.Active")
             {
@@ -43,25 +43,25 @@ static void show_version()
             }
 
             auto purpose = getProperty<std::string>(
-                bus_entry.first, tree_entry.first, VERSION_IFACE, "Purpose");
+                busEntry.first, treeEntry.first, VERSION_IFACE, "Purpose");
             auto version = getProperty<std::string>(
-                bus_entry.first, tree_entry.first, VERSION_IFACE, "Version");
+                busEntry.first, treeEntry.first, VERSION_IFACE, "Version");
 
             printf("%-6s  %s   [ID=%s]\n",
                    purpose.c_str() + purpose.rfind('.') + 1, version.c_str(),
-                   tree_entry.first.c_str() + tree_entry.first.rfind('/') + 1);
+                   treeEntry.first.c_str() + treeEntry.first.rfind('/') + 1);
 
             try
             {
-                auto ext_version = getProperty<std::string>(
-                    bus_entry.first, tree_entry.first, EXTENDED_VERSION_IFACE,
+                auto extVersion = getProperty<std::string>(
+                    busEntry.first, treeEntry.first, EXTENDED_VERSION_IFACE,
                     "ExtendedVersion");
                 size_t begin = 0;
                 while (begin != std::string::npos)
                 {
-                    size_t end = ext_version.find(',', begin);
+                    size_t end = extVersion.find(',', begin);
                     printf("        %s\n",
-                           ext_version.substr(begin, end - begin).c_str());
+                           extVersion.substr(begin, end - begin).c_str());
 
                     if (end != std::string::npos)
                     {
@@ -84,17 +84,17 @@ static void show_version()
  */
 void reboot(bool interactive)
 {
-    bool manual_reboot = !interactive;
+    bool manualReboot = !interactive;
 
     if (interactive &&
         !confirm("The BMC system will be rebooted to apply changes."))
     {
-        manual_reboot = true;
+        manualReboot = true;
     }
 
     try
     {
-        if (!manual_reboot)
+        if (!manualReboot)
         {
             Tracer tracer("Reboot BMC system");
             std::ignore = exec("/sbin/reboot");
@@ -103,10 +103,10 @@ void reboot(bool interactive)
     }
     catch (...)
     {
-        manual_reboot = true;
+        manualReboot = true;
     }
 
-    if (manual_reboot)
+    if (manualReboot)
     {
         throw FwupdateError("The BMC needs to be manually rebooted.");
     }
@@ -119,7 +119,7 @@ void reboot(bool interactive)
  *                      (ask for user confirmation)
  * @param force       - flag to reset without locks
  */
-void reset_firmware(bool interactive, bool force)
+void resetFirmware(bool interactive, bool force)
 {
     constexpr auto LOST_DATA_WARN =
         "WARNING: "
@@ -140,16 +140,16 @@ void reset_firmware(bool interactive, bool force)
 /**
  * @brief Flash the firmware files.
  *
- * @param firmware_file   - Path to firmware file.
- * @param reset           - flag to drop current settings.
- * @param interactive     - flag to use interactive mode.
- * @param skip_sign_check - flag to skip signature verification.
- * @param force           - flag to flash without lock
+ * @param firmwareFile  - Path to firmware file.
+ * @param reset         - flag to drop current settings.
+ * @param interactive   - flag to use interactive mode.
+ * @param skipSignCheck - flag to skip signature verification.
+ * @param force         - flag to flash without lock
  */
-void flash_firmware(const fs::path& firmware_file, bool reset, bool interactive,
-                    bool skip_sign_check, bool force)
+void flashFirmware(const fs::path& firmwareFile, bool reset, bool interactive,
+                   bool skipSignCheck, bool force)
 {
-    if (!fs::exists(firmware_file))
+    if (!fs::exists(firmwareFile))
     {
         throw FwupdateError("Firmware package not found!");
     }
@@ -173,9 +173,9 @@ void flash_firmware(const fs::path& firmware_file, bool reset, bool interactive,
     }
 
     FwUpdate fwupdate(force);
-    fwupdate.unpack(firmware_file);
+    fwupdate.unpack(firmwareFile);
 
-    if (!skip_sign_check)
+    if (!skipSignCheck)
     {
         fwupdate.verify();
     }
@@ -191,7 +191,7 @@ void flash_firmware(const fs::path& firmware_file, bool reset, bool interactive,
  *
  * @param app - Application name
  */
-static void print_usage(const char* app)
+static void printUsage(const char* app)
 {
     printf("\nUsage: %s [-h] [-f FILE] [-r] [-s] [-y] [-v]\n", app);
     printf(R"(optional arguments:
@@ -234,36 +234,36 @@ int main(int argc, char* argv[])
     };
 
     bool interactive = true;
-    bool do_reset = false;
-    bool skip_sign_check = false;
-    bool force_flash = false;
-    bool do_show_version = false;
-    std::string firmware_file;
+    bool doReset = false;
+    bool skipSignCheck = false;
+    bool forceFlash = false;
+    bool doShowVersion = false;
+    std::string firmwareFile;
 
     opterr = 0;
-    int opt_val;
-    while ((opt_val = getopt_long(argc, argv, "hf:rsFyv", opts, nullptr)) != -1)
+    int optVal;
+    while ((optVal = getopt_long(argc, argv, "hf:rsFyv", opts, nullptr)) != -1)
     {
-        switch (opt_val)
+        switch (optVal)
         {
             case 'h':
-                print_usage(argv[0]);
+                printUsage(argv[0]);
                 return EXIT_SUCCESS;
 
             case 'f':
-                firmware_file = optarg;
+                firmwareFile = optarg;
                 break;
 
             case 'r':
-                do_reset = true;
+                doReset = true;
                 break;
 
             case 's':
-                skip_sign_check = true;
+                skipSignCheck = true;
                 break;
 
             case 'F':
-                force_flash = true;
+                forceFlash = true;
                 break;
 
             case 'y':
@@ -271,30 +271,30 @@ int main(int argc, char* argv[])
                 break;
 
             case 'v':
-                do_show_version = true;
+                doShowVersion = true;
                 break;
 
             default:
                 fprintf(stderr, "Invalid option: %s\n", argv[optind - 1]);
-                print_usage(argv[0]);
+                printUsage(argv[0]);
                 return EXIT_FAILURE;
         }
     }
 
     try
     {
-        if (do_show_version)
+        if (doShowVersion)
         {
-            show_version();
+            showVersion();
         }
-        else if (!firmware_file.empty())
+        else if (!firmwareFile.empty())
         {
-            flash_firmware(firmware_file, do_reset, interactive,
-                           skip_sign_check, force_flash);
+            flashFirmware(firmwareFile, doReset, interactive, skipSignCheck,
+                          forceFlash);
         }
-        else if (do_reset)
+        else if (doReset)
         {
-            reset_firmware(interactive, force_flash);
+            resetFirmware(interactive, forceFlash);
         }
         else
         {

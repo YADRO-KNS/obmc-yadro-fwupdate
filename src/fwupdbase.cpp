@@ -14,7 +14,7 @@ FwUpdBase::FwUpdBase(const fs::path& tmpdir) : tmpdir(tmpdir)
 
 bool FwUpdBase::add(const fs::path& file)
 {
-    bool ret = fs::is_regular_file(file) && is_file_belong(file);
+    bool ret = fs::is_regular_file(file) && isFileFlashable(file);
     if (ret)
     {
         files.emplace_back(file);
@@ -27,19 +27,19 @@ void FwUpdBase::verify(const fs::path& publicKey, const std::string& hashFunc)
     for (const auto& file : files)
     {
         Tracer tracer("Check signature for %s", file.filename().c_str());
-        verify_file(publicKey, hashFunc, file);
+        verifyFile(publicKey, hashFunc, file);
         tracer.done();
     }
 }
 
 bool FwUpdBase::install(bool reset)
 {
-    do_before_install(reset);
+    doBeforeInstall(reset);
 
     for (const auto& file : files)
     {
-        do_install(file);
+        doInstall(file);
     }
 
-    return do_after_install(reset);
+    return doAfterInstall(reset);
 }
