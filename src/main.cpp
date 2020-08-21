@@ -108,7 +108,8 @@ void reboot(bool interactive)
 
     if (manualReboot)
     {
-        throw FwupdateError("The BMC needs to be manually rebooted.");
+        fprintf(stdout, "The BMC needs to be manually rebooted.\n");
+        fflush(stdout);
     }
 }
 
