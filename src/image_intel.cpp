@@ -5,7 +5,7 @@
 
 #include "config.h"
 
-#include "intel-platforms.hpp"
+#include "image_intel.hpp"
 
 #include "dbus.hpp"
 #include "subprocess.hpp"
