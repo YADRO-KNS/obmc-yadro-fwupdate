@@ -21,7 +21,6 @@ bool confirm(const char* title, const char* prompt)
     while (true)
     {
         printf("%s [y/N]: ", prompt);
-        fflush(stdout);
         if (std::getline(std::cin, answer))
         {
             if (answer.empty())

@@ -151,7 +151,7 @@ void OpenPowerUpdater::reset()
     auto partitions = getPartsToClear();
     if (partitions.empty())
     {
-        fprintf(stdout, "NOTE: No partitions found the PNOR flash!\n");
+        printf("NOTE: No partitions found on the PNOR flash!\n");
     }
 
     for (auto p : partitions)
@@ -183,10 +183,9 @@ void OpenPowerUpdater::doBeforeInstall(bool reset)
             if (!fs::exists(partFile))
             {
                 tracer.fail();
-                fprintf(stdout,
-                        "NOTE: Preserving %s failed, default settings will be "
-                        "used.\n",
-                        part.c_str());
+                printf("NOTE: Preserving %s failed, default settings will be "
+                       "used.\n",
+                       part.c_str());
             }
             else
             {
@@ -200,8 +199,7 @@ void OpenPowerUpdater::doInstall(const fs::path& file)
 {
     // NOTE: This process may take a lot of time and we want to show the
     //       progress from original pflash output.
-    fprintf(stdout, "Writing %s ... \n", file.filename().c_str());
-    fflush(stdout);
+    printf("Writing %s ... \n", file.filename().c_str());
     int rc = system(strfmt("%s -f -E -p %s", PFLASH_CMD, file.c_str()).c_str());
     checkWaitStatus(rc, "");
 }

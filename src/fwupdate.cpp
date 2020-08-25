@@ -260,7 +260,7 @@ void FwUpdate::checkMachineType()
     if (currentMachine.empty())
     {
         // We are running on an old BMC version.
-        fprintf(stdout, "WARNING: Current machine name is undefined, "
+        fprintf(stderr, "WARNING: Current machine name is undefined, "
                         "the check is skipped.\n");
     }
     else

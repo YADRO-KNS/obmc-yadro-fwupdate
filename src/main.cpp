@@ -108,8 +108,7 @@ void reboot(bool interactive)
 
     if (manualReboot)
     {
-        fprintf(stdout, "The BMC needs to be manually rebooted.\n");
-        fflush(stdout);
+        printf("The BMC needs to be manually rebooted.\n");
     }
 }
 
@@ -219,7 +218,10 @@ static void printUsage(const char* app)
  */
 int main(int argc, char* argv[])
 {
-    printf("OpenBMC/OpenPOWER firmware updater ver %s\n", PROJECT_VERSION);
+    /* Disable buffering on stdout */
+    setvbuf(stdout, NULL, _IONBF, 0);
+
+    printf("YADRO firmware updater ver %s\n", PROJECT_VERSION);
 
     const struct option opts[] = {
         // clang-format off
