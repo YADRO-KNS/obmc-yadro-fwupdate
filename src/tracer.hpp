@@ -31,15 +31,13 @@ struct Tracer
     template <typename... Args>
     Tracer(const char* fmt, Args&&... args)
     {
-        int offset = fprintf(stdout, fmt, std::forward<Args>(args)...);
-        fprintf(stdout, " %*s ", offset - TITLE_WIDTH, "...");
-        fflush(stdout);
+        int offset = printf(fmt, std::forward<Args>(args)...);
+        printf(" %*s ", offset - TITLE_WIDTH, "...");
     }
     Tracer(const char* msg)
     {
         int offset = strlen(msg);
-        fprintf(stdout, "%s %*s ", msg, offset - TITLE_WIDTH, "...");
-        fflush(stdout);
+        printf("%s %*s ", msg, offset - TITLE_WIDTH, "...");
     }
 
     /**
@@ -72,8 +70,7 @@ struct Tracer
      */
     void complete(const char* status)
     {
-        fprintf(stdout, "[%s]\n", status);
-        fflush(stdout);
+        printf("[%s]\n", status);
         completed = true;
     }
 

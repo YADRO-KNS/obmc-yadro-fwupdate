@@ -89,8 +89,7 @@ void IntelPlatformsUpdater::doInstall(const fs::path& file)
 
     // NOTE: This process may take a lot of time and we want to show the
     //       progress from original pflash output.
-    fprintf(stdout, "Writing %s to %s\n", file.filename().c_str(), mtd);
-    fflush(stdout);
+    printf("Writing %s to %s\n", file.filename().c_str(), mtd);
     int rc = system(strfmt("flashcp -v %s %s", file.c_str(), mtd).c_str());
     checkWaitStatus(rc, "");
 
