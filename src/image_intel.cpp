@@ -11,6 +11,8 @@
 #include "subprocess.hpp"
 #include "tracer.hpp"
 
+#include <regex>
+
 constexpr size_t IMAGE_A_ADDR = 0x20080000;
 constexpr size_t IMAGE_B_ADDR = 0x22480000;
 
@@ -78,22 +80,64 @@ void IntelPlatformsUpdater::reset()
 
 void IntelPlatformsUpdater::doInstall(const fs::path& file)
 {
-    size_t bootaddr = IMAGE_A_ADDR;
-    const char* mtd = "/dev/mtd/image-a";
+    size_t bootaddr = 0;
+    const char* mtd = nullptr;
 
-    if (getBootAddress() == IMAGE_A_ADDR)
+    const std::string& filename = file.filename();
+
+    if (filename == "image-mtd")
     {
-        bootaddr = IMAGE_B_ADDR;
-        mtd = "/dev/mtd/image-b";
+        mtd = "/dev/mtd0";
+        releaseFlashDrive();
+    }
+    else if (filename == "image-runtime")
+    {
+        switch (getBootAddress())
+        {
+            case IMAGE_A_ADDR:
+                bootaddr = IMAGE_B_ADDR;
+                mtd = "/dev/mtd/image-b";
+                break;
+
+            case IMAGE_B_ADDR:
+                bootaddr = IMAGE_A_ADDR;
+                mtd = "/dev/mtd/image-a";
+                break;
+
+            default:
+                throw FwupdateError("Unable to determine boot address!");
+                break;
+        };
+    }
+    else if (filename == "image-u-boot")
+    {
+        if (fs::file_size(file) == 0)
+        {
+            // Typically image-u-boot present in the bundle as an empty file.
+            // It is not an error and file should be skipped.
+            return;
+        }
+
+        mtd = "/dev/mtd/u-boot";
     }
 
-    // NOTE: This process may take a lot of time and we want to show the
-    //       progress from original pflash output.
-    printf("Writing %s to %s\n", file.filename().c_str(), mtd);
-    int rc = system(strfmt("flashcp -v %s %s", file.c_str(), mtd).c_str());
-    checkWaitStatus(rc, "");
+    if (mtd)
+    {
+        // NOTE: This process may take a lot of time and we want to show the
+        //       progress from original pflash output.
+        printf("Writing %s to %s\n", filename.c_str(), mtd);
+        int rc = system(strfmt("flashcp -v %s %s", file.c_str(), mtd).c_str());
+        checkWaitStatus(rc, "");
+    }
+    else
+    {
+        throw FwupdateError("No partition defined for %s", filename.c_str());
+    }
 
-    setBootAddress(bootaddr);
+    if (bootaddr)
+    {
+        setBootAddress(bootaddr);
+    }
 }
 
 bool IntelPlatformsUpdater::doAfterInstall(bool reset)
@@ -107,5 +151,6 @@ bool IntelPlatformsUpdater::doAfterInstall(bool reset)
 
 bool IntelPlatformsUpdater::isFileFlashable(const fs::path& file) const
 {
-    return file.filename() == "image-runtime";
+    static const std::regex image("^image-(mtd|runtime|u-boot)$");
+    return std::regex_match(file.filename().string(), image);
 }
