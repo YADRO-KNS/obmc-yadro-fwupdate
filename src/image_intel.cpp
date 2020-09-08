@@ -11,6 +11,10 @@
 #include "subprocess.hpp"
 #include "tracer.hpp"
 
+#include <sys/mount.h>
+#include <unistd.h>
+
+#include <fstream>
 #include <regex>
 
 constexpr size_t IMAGE_A_ADDR = 0x20080000;
@@ -40,6 +44,72 @@ static void setBootAddress(size_t address)
     std::ignore = exec("fw_setenv bootcmd bootm %08x", address);
 }
 
+using FileSystem = std::string;
+using MountPoint = std::string;
+using MountPoints = std::vector<std::pair<FileSystem, MountPoint>>;
+
+static MountPoints getMountPoints()
+{
+    /* This regexp gives MTD partitions and their mount points.
+     * For example:
+     *   mtd:rwfs /tmp/.rwfs jffs2 rw,sync,relatime 0 0
+     *   mtd:sofs /var/sofs jffs2 rw,sync,relatime 0 0
+     * give two pairs:
+     *   {'mtd:rwfs', '/tmp/.rwfs'},
+     *   {'mtd:sofs', '/var/sofs'}
+     */
+    static const std::regex MTDPartsTmpl("^(mtd:\\w+)\\s+([^\\s]+)\\s+.*$");
+    MountPoints mtdPartitions;
+    std::ifstream mounts("/proc/mounts");
+
+    if (mounts.is_open())
+    {
+        std::string line;
+        while (std::getline(mounts, line))
+        {
+            std::smatch match;
+            if (std::regex_match(line, match, MTDPartsTmpl))
+            {
+                mtdPartitions.emplace_back(
+                    std::make_pair(match[1].str(), match[2].str()));
+            }
+        }
+
+        mounts.close();
+    }
+
+    return mtdPartitions;
+}
+
+static void unmountFilesystem(const std::string& filesystem)
+{
+    // Some systemd services may to occupate the RW partition
+    // and make delay up to 20 seconds. We should to wait them
+    // befor throw an error.
+    constexpr auto maxTries = 40;  // Max number of tries to unmount
+    constexpr auto delay = 500000; // Delay in microseconds between tries
+
+    auto tryNumber = 0;
+
+    while (true)
+    {
+        int rc = umount(filesystem.c_str());
+        if (rc < 0 && errno == EBUSY && tryNumber < maxTries)
+        {
+            tryNumber++;
+            usleep(delay);
+        }
+        else if (rc < 0)
+        {
+            throw FwupdateError("umount %s failed, error=%d: %s",
+                                filesystem.c_str(), errno, strerror(errno));
+        }
+        else if (rc == 0)
+        {
+            break;
+        }
+    }
+}
 /**
  * @brief Stops all services which ones use the flash drive
  *        and unmount partitions from the flash drive.
@@ -54,10 +124,16 @@ static void releaseFlashDrive()
     stopUnit("logrotate.service");
     stopUnit("nv-sync.service");
 
-    std::ignore = exec("umount mtd:rwfs");
-    std::ignore = exec("umount mtd:sofs");
-
     tracer.done();
+
+    auto mountPoints = getMountPoints();
+
+    for (const auto& pt : mountPoints)
+    {
+        Tracer tracer("Unmounting %s", pt.first.c_str());
+        unmountFilesystem(pt.second);
+        tracer.done();
+    }
 }
 
 void IntelPlatformsUpdater::reset()
