@@ -43,6 +43,15 @@ ObjectsMap getSubTree(const Path& path, const Interfaces& ifaces,
                       int32_t depth = 0);
 
 /**
+ * @brief Check if specified systemd unit exists.
+ *
+ * @param unitname - Name of the systemd unit.
+ *
+ * @return true if service exists.
+ */
+bool doesUnitExist(const std::string& unitname);
+
+/**
  * @brief Start systemd unit.
  *
  * @param unitname - Name of the systemd unit.

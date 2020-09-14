@@ -116,15 +116,21 @@ static void unmountFilesystem(const std::string& filesystem)
  */
 static void releaseFlashDrive()
 {
-    Tracer tracer("Release flash drive");
+    const std::vector<std::string> units = {
+        "rotate-event-logs.timer", "rotate-event-logs.service",
+        "logrotate.timer",         "logrotate.service",
+        "nv-sync.service",
+    };
 
-    stopUnit("rotate-event-logs.timer");
-    stopUnit("rotate-event-logs.service");
-    stopUnit("logrotate.timer");
-    stopUnit("logrotate.service");
-    stopUnit("nv-sync.service");
-
-    tracer.done();
+    for (const auto& unit : units)
+    {
+        if (doesUnitExist(unit))
+        {
+            Tracer tracer("Stopping %s", unit.c_str());
+            stopUnit(unit);
+            tracer.done();
+        }
+    }
 
     auto mountPoints = getMountPoints();
 
