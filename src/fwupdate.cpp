@@ -271,8 +271,11 @@ void FwUpdate::checkMachineType()
         auto targetMachine = getCfgValue(manifestFile, "MachineName");
         if (currentMachine != targetMachine)
         {
-            throw FwupdateError("Frimware package is not compatible with this "
-                                "system.");
+            throw FwupdateError(
+                "Firmware package is not compatible with this system.\n"
+                "Expected target machine type :  %s\n"
+                "Actual target machine type   :  %s\n",
+                targetMachine.c_str(), currentMachine.c_str());
         }
 
         tracer.done();
