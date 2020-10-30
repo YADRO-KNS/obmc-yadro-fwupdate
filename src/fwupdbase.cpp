@@ -5,6 +5,7 @@
 
 #include "fwupdbase.hpp"
 
+#include "fwupderr.hpp"
 #include "signature.hpp"
 #include "tracer.hpp"
 
@@ -27,7 +28,11 @@ void FwUpdBase::verify(const fs::path& publicKey, const std::string& hashFunc)
     for (const auto& file : files)
     {
         Tracer tracer("Check signature for %s", file.filename().c_str());
-        verifyFile(publicKey, hashFunc, file);
+        if (!verifyFile(publicKey, hashFunc, file))
+        {
+            throw FwupdateError("The %s signature verification failed!",
+                                file.filename().c_str());
+        }
         tracer.done();
     }
 }
