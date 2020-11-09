@@ -140,7 +140,7 @@ void FwUpdate::unlock()
 #ifdef REBOOT_GUARD_SUPPORT
     if (locked)
     {
-        Tracer tracer("Unocking BMC reboot");
+        Tracer tracer("Unlocking BMC reboot");
         startUnit(REBOOT_GUARD_DISABLE);
         locked = false;
         tracer.done();
