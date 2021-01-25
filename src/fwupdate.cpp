@@ -18,6 +18,7 @@
 #endif
 
 #ifdef INTEL_PLATFORMS
+#include "image_bios.hpp"
 #include "image_intel.hpp"
 #endif
 
@@ -94,6 +95,7 @@ FwUpdate::FwUpdate(bool force) : tmpdir(createTmpDir()), force(force)
     updaters.emplace_back(std::make_unique<OBMCPhosphorImageUpdater>(tmpdir));
 #endif
 #ifdef INTEL_PLATFORMS
+    updaters.emplace_back(std::make_unique<BIOSUpdater>(tmpdir));
     updaters.emplace_back(std::make_unique<IntelPlatformsUpdater>(tmpdir));
 #endif
 }
