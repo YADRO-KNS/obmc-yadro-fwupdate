@@ -37,6 +37,10 @@ conf.set_quoted('SYSTEMD_BUSNAME', get_option('systemd-busname'))
 conf.set_quoted('SYSTEMD_PATH', get_option('systemd-path'))
 conf.set_quoted('SYSTEMD_INTERFACE', get_option('systemd-interface'))
 
+conf.set_quoted('CHASSIS_STATE_PATH', get_option('chassis-state-path'))
+conf.set_quoted('CHASSIS_STATE_IFACE', get_option('chassis-state-iface'))
+conf.set_quoted('CHASSIS_STATE_OFF', get_option('chassis-state-off'))
+
 reboot_guard_support = get_option('reboot-guard-support')
 conf.set('REBOOT_GUARD_SUPPORT', reboot_guard_support)
 
@@ -49,9 +53,6 @@ openpower_support = get_option('openpower-support')
 conf.set('OPENPOWER_SUPPORT', openpower_support)
 
 if openpower_support
-    conf.set_quoted('CHASSIS_STATE_PATH', get_option('chassis-state-path'))
-    conf.set_quoted('CHASSIS_STATE_IFACE', get_option('chassis-state-iface'))
-    conf.set_quoted('CHASSIS_STATE_OFF', get_option('chassis-state-off'))
     conf.set_quoted('HIOMAPD_PATH', get_option('hiomapd-path'))
     conf.set_quoted('HIOMAPD_IFACE', get_option('hiomapd-iface'))
     conf.set_quoted('PFLASH_CMD', get_option('pflash-cmd'))

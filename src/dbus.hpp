@@ -102,3 +102,10 @@ PropertyType getProperty(const BusName& busname, const Path& path,
 
     return std::get<PropertyType>(value);
 }
+
+/**
+ * @brief Check whether the host is running
+ *
+ * @return - true if the Chassis is powered on
+ */
+bool isChassisOn();

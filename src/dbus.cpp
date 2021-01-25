@@ -128,3 +128,13 @@ void stopUnit(const std::string& unitname)
         unsubscribeFromSystemdSignals();
     }
 }
+
+bool isChassisOn()
+{
+    auto objs = getObjects(CHASSIS_STATE_PATH, {CHASSIS_STATE_IFACE});
+    auto state =
+        getProperty<std::string>(objs.begin()->first, CHASSIS_STATE_PATH,
+                                 CHASSIS_STATE_IFACE, "CurrentPowerState");
+
+    return state != CHASSIS_STATE_OFF;
+}
