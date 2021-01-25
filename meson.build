@@ -89,6 +89,10 @@ elif bmc_image_type == 'intel-platforms'
     conf.set('INTEL_PLATFORMS', true)
     fwupdate_sources += [
         'src/image_intel.cpp',
+        'src/image_bios.cpp',
+    ]
+    fwupdate_dependencies += [
+        dependency('libgpiodcxx'),
     ]
 endif
 
