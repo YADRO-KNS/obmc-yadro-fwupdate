@@ -228,7 +228,8 @@ bool IntelPlatformsUpdater::doAfterInstall(bool reset)
     {
         this->reset();
     }
-    return true;
+    // Reboot is required when the BMC has been updated only.
+    return !files.empty();
 }
 
 bool IntelPlatformsUpdater::isFileFlashable(const fs::path& file) const
