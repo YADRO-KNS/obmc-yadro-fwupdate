@@ -18,6 +18,12 @@ fwupdate_sources = [
     'src/subprocess.cpp',
 ]
 
+fwupdate_dependencies = [
+    dependency('sdbusplus'),
+    dependency('openssl'),
+    meson.get_compiler('cpp').find_library('stdc++fs'),
+]
+
 conf = configuration_data()
 conf.set_quoted('PROJECT_VERSION', meson.project_version())
 
@@ -91,10 +97,6 @@ configure_file(output: 'config.h', configuration: conf)
 executable(
     'fwupdate',
     fwupdate_sources,
-    dependencies: [
-        dependency('sdbusplus'),
-        dependency('openssl'),
-        meson.get_compiler('cpp').find_library('stdc++fs'),
-    ],
+    dependencies: fwupdate_dependencies,
     install: true,
 )
