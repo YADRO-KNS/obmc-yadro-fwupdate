@@ -25,12 +25,12 @@ using ObjectsMap = std::map<Path, Objects>;
  * @param path   - Object path
  * @param ifaces - Interfaces
  *
- * @return Return map of sevice -> implemented interfaces
+ * @return Return map of service -> implemented interfaces
  */
 Objects getObjects(const Path& path, const Interfaces& ifaces);
 
 /**
- * @brief Obtain a map of path -> services where path is in subtree and serivces
+ * @brief Obtain a map of path -> services where path is in subtree and services
  * is of the type returned by the getObjects method
  *
  * @param path   - Objects path
@@ -73,7 +73,7 @@ extern sdbusplus::bus::bus systemBus;
 using PropertyName = std::string;
 
 /**
- * @brief Get D-Bus propery from specified service.
+ * @brief Get D-Bus property from specified service.
  *
  * @param busname  - D-Bus service name
  * @param path     - Object path

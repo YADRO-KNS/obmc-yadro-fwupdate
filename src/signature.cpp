@@ -114,7 +114,7 @@ RSA* createPublicRSA(const std::string& publicKey)
     }
 
     // NOTE: Return value should be freed with RSA_free or
-    //       as part of EVP_KEY sturcture.
+    //       as part of EVP_KEY structure.
     return PEM_read_bio_RSA_PUBKEY(keyBio.get(), nullptr, nullptr, nullptr);
 }
 
@@ -158,7 +158,7 @@ bool verifyFile(const std::string& keyFile, const std::string& hashFunc,
                                        nullptr, pKeyPtr.get());
     if (result != 1)
     {
-        throw FwupdateError("Error %lu occured during EVP_DigestVerifyInit.",
+        throw FwupdateError("Error %lu occurred during EVP_DigestVerifyInit.",
                             ERR_get_error());
     }
 
@@ -167,7 +167,7 @@ bool verifyFile(const std::string& keyFile, const std::string& hashFunc,
         EVP_DigestVerifyUpdate(rsaVerifyCtx.get(), data.get(), data.size());
     if (result != 1)
     {
-        throw FwupdateError("Error %lu occured during EVP_DigestVerifyUpdate.",
+        throw FwupdateError("Error %lu occurred during EVP_DigestVerifyUpdate.",
                             ERR_get_error());
     }
 
@@ -177,7 +177,7 @@ bool verifyFile(const std::string& keyFile, const std::string& hashFunc,
         signature.size());
     if (result == -1)
     {
-        throw FwupdateError("Error %lu occured during EVP_DigestVerifyFinal.",
+        throw FwupdateError("Error %lu occurred during EVP_DigestVerifyFinal.",
                             ERR_get_error());
     }
 

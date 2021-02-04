@@ -73,7 +73,7 @@ struct FwUpdate
     bool addFile(const fs::path& file);
 
     /**
-     * @brief Create fs::path object and check existense
+     * @brief Create fs::path object and check existence
      */
     fs::path getFWFile(const std::string& filename);
 
