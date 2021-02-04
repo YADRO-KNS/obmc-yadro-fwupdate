@@ -201,7 +201,7 @@ void BIOSUpdater::doInstall(const fs::path& file)
     constexpr auto mtd = "/dev/mtd/bios";
 
     // NOTE: This process may take a lot of time and we want to show the
-    //       progress from original pflash output.
+    //       progress from original flashcp output.
     printf("Writing %s to %s\n", file.filename().c_str(), mtd);
     int rc = system(strfmt("flashcp -v %s %s", file.c_str(), mtd).c_str());
     checkWaitStatus(rc, "");

@@ -11,7 +11,7 @@
 using Files = std::vector<fs::path>;
 
 /**
- * @brief Base Firmware updater impementation.
+ * @brief Base Firmware updater implementation.
  */
 struct FwUpdBase : public FwUpdIFace
 {

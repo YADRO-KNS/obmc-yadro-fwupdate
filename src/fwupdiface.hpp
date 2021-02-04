@@ -39,7 +39,7 @@ struct FwUpdIFace
      * @brief Add firmware file
      *
      * @param file - path to the firmware file.
-     * @return true if file successeful added
+     * @return true if file successful added
      */
     virtual bool add(const fs::path& file) = 0;
 

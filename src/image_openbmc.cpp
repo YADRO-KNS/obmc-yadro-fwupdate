@@ -47,7 +47,7 @@ bool OBMCPhosphorImageUpdater::doAfterInstall(bool reset)
 
     if (installed && reset)
     {
-        Tracer tracer("Cleaninig whitelist");
+        Tracer tracer("Cleaning whitelist");
         fs::path whitelist(OPENBMC_FLASH_PATH);
         whitelist /= OPENBMC_WHITELIST_FILE_NAME;
         if (fs::exists(whitelist))

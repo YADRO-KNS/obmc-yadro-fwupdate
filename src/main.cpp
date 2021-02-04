@@ -25,7 +25,7 @@
 namespace fs = std::filesystem;
 
 /**
- * @brief Prints version details of all avtive software objects.
+ * @brief Prints version details of all active software objects.
  */
 static void showVersion()
 {
@@ -123,7 +123,7 @@ void resetFirmware(bool interactive, bool force)
 {
     constexpr auto LOST_DATA_WARN =
         "WARNING: "
-        "All settings will be resotred to manufacturing default values.";
+        "All settings will be restored to manufacturing default values.";
 
     if (interactive && !confirm(LOST_DATA_WARN))
     {

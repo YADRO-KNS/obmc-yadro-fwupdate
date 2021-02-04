@@ -83,9 +83,9 @@ static MountPoints getMountPoints()
 
 static void unmountFilesystem(const std::string& filesystem)
 {
-    // Some systemd services may to occupate the RW partition
-    // and make delay up to 20 seconds. We should to wait them
-    // befor throw an error.
+    // Some systemd services may occupy the RW partition
+    // resulting in a delay of up to 20 seconds. We should wait for them
+    // before throwing an error.
     constexpr auto maxTries = 40;  // Max number of tries to unmount
     constexpr auto delay = 500000; // Delay in microseconds between tries
 
@@ -206,7 +206,7 @@ void IntelPlatformsUpdater::doInstall(const fs::path& file)
     if (mtd)
     {
         // NOTE: This process may take a lot of time and we want to show the
-        //       progress from original pflash output.
+        //       progress from original flashcp output.
         printf("Writing %s to %s\n", filename.c_str(), mtd);
         int rc = system(strfmt("flashcp -v %s %s", file.c_str(), mtd).c_str());
         checkWaitStatus(rc, "");
