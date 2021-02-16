@@ -5,10 +5,9 @@
 
 #include "config.h"
 
-#include "image_bios.hpp"
-
 #include "dbus.hpp"
 #include "fwupderr.hpp"
+#include "image_bios.hpp"
 #include "subprocess.hpp"
 #include "tracer.hpp"
 
@@ -18,9 +17,14 @@
 
 static const fs::path aspeedSMC = "/sys/bus/platform/drivers/aspeed-smc";
 static constexpr auto spiDriver = "1e631000.spi";
+static const char* mtdDevice = "/dev/mtd/bios";
+static const size_t mtdBlockSize = 0xffff;
 static constexpr auto gpioNamePCHPower = "PWRGD_DSW_PWROK";
 static constexpr auto gpioNameBIOSSel = "MIO_BIOS_SEL";
 static constexpr auto gpioOwner = "fwupdate";
+static constexpr size_t nvramOffset = 0x01000000;
+static constexpr size_t nvramSize = 0x00080000;
+static const char* nvramFile = "nvram.bin";
 
 /**
  * @brief Check if SPI driver is already bound
@@ -198,13 +202,57 @@ void BIOSUpdater::unlock()
 
 void BIOSUpdater::doInstall(const fs::path& file)
 {
-    constexpr auto mtd = "/dev/mtd/bios";
-
     // NOTE: This process may take a lot of time and we want to show the
     //       progress from original flashcp output.
-    printf("Writing %s to %s\n", file.filename().c_str(), mtd);
-    int rc = system(strfmt("flashcp -v %s %s", file.c_str(), mtd).c_str());
+    printf("Writing %s to %s\n", file.filename().c_str(), mtdDevice);
+    int rc =
+        system(strfmt("flashcp -v %s %s", file.c_str(), mtdDevice).c_str());
     checkWaitStatus(rc, "");
+}
+
+void BIOSUpdater::doBeforeInstall(bool reset)
+{
+    if (!reset)
+    {
+        puts("Preserving UEFI settings...");
+        const fs::path dumpFile(tmpdir / nvramFile);
+        const std::string cmd =
+            strfmt("nanddump --startaddress %lu --length %lu --file '%s' %s",
+                   nvramOffset, nvramSize, dumpFile.c_str(), mtdDevice);
+        const int rc = system(cmd.c_str());
+        checkWaitStatus(rc, std::string());
+        if (!fs::exists(dumpFile))
+        {
+            throw FwupdateError("Error reading NVRAM");
+        }
+    }
+}
+
+bool BIOSUpdater::doAfterInstall(bool reset)
+{
+    if (!reset)
+    {
+        const fs::path dumpFile(tmpdir / nvramFile);
+        if (!fs::exists(dumpFile))
+        {
+            throw FwupdateError("NVRAM dump not found");
+        }
+
+        puts("Preparing NVRAM partition...");
+        const std::string cmdErase =
+            strfmt("flash_erase %s %lu %lu", mtdDevice, nvramOffset,
+                   nvramSize / mtdBlockSize);
+        int rc = system(cmdErase.c_str());
+        checkWaitStatus(rc, std::string());
+
+        puts("Restoring UEFI settings...");
+        const std::string cmdWrite =
+            strfmt("nandwrite --start %lu %s %s", nvramOffset, mtdDevice,
+                   dumpFile.c_str());
+        rc = system(cmdWrite.c_str());
+        checkWaitStatus(rc, std::string());
+    }
+    return false; // reboot is not needed
 }
 
 bool BIOSUpdater::isFileFlashable(const fs::path& file) const
