@@ -27,7 +27,7 @@ static size_t getBootAddress()
 {
     const std::string bootcmdPrefix = "bootcmd=bootm";
 
-    std::string bootcmd = exec("fw_printenv bootcmd");
+    std::string bootcmd = exec(FW_PRINTENV_CMD " bootcmd");
     if (bootcmd.compare(0, bootcmdPrefix.length(), bootcmdPrefix) == 0)
     {
         return std::stoul(bootcmd.substr(bootcmdPrefix.length()), nullptr, 16);
@@ -41,7 +41,7 @@ static size_t getBootAddress()
  */
 static void setBootAddress(size_t address)
 {
-    std::ignore = exec("fw_setenv bootcmd bootm %08x", address);
+    std::ignore = exec(FW_SETENV_CMD " bootcmd bootm %08x", address);
 }
 
 using FileSystem = std::string;
@@ -149,9 +149,9 @@ void IntelPlatformsUpdater::reset()
     releaseFlashDrive();
 
     Tracer tracer("Clear writable partitions");
-    std::ignore = exec("flash_erase /dev/mtd/rwfs 0 0");
-    std::ignore = exec("flash_erase /dev/mtd/sofs 0 0");
-    std::ignore = exec("flash_erase /dev/mtd/u-boot-env 0 0");
+    std::ignore = exec(FLASH_ERASE_CMD " /dev/mtd/rwfs 0 0");
+    std::ignore = exec(FLASH_ERASE_CMD " /dev/mtd/sofs 0 0");
+    std::ignore = exec(FLASH_ERASE_CMD " /dev/mtd/u-boot-env 0 0");
 
     if (bootaddr == IMAGE_B_ADDR)
     {
@@ -208,7 +208,7 @@ void IntelPlatformsUpdater::doInstall(const fs::path& file)
         // NOTE: This process may take a lot of time and we want to show the
         //       progress from original flashcp output.
         printf("Writing %s to %s\n", filename.c_str(), mtd);
-        int rc = system(strfmt("flashcp -v %s %s", file.c_str(), mtd).c_str());
+        int rc = system(strfmt(FLASHCP_CMD " -v %s %s", file.c_str(), mtd).c_str());
         checkWaitStatus(rc, "");
     }
     else

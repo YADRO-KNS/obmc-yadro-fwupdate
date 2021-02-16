@@ -69,6 +69,15 @@ if openpower_support
     ]
 endif
 
+conf.set_quoted('TAR_CMD', get_option('tar-cmd'))
+conf.set_quoted('REBOOT_CMD', get_option('reboot-cmd'))
+conf.set_quoted('FW_SETENV_CMD', get_option('fw-setenv-cmd'))
+conf.set_quoted('FW_PRINTENV_CMD', get_option('fw-printenv-cmd'))
+conf.set_quoted('FLASHCP_CMD', get_option('flashcp-cmd'))
+conf.set_quoted('FLASH_ERASE_CMD', get_option('flash-erase-cmd'))
+conf.set_quoted('NANDDUMP_CMD', get_option('nanddump-cmd'))
+conf.set_quoted('NANDWRITE_CMD', get_option('nandwrite-cmd'))
+
 conf.set_quoted('OS_RELEASE_FILE', get_option('os-release-file'))
 conf.set_quoted('MANIFEST_FILE_NAME', get_option('manifest-file-name'))
 conf.set_quoted('PUBLICKEY_FILE_NAME', get_option('publickey-file-name'))
