@@ -97,7 +97,7 @@ void reboot(bool interactive)
         if (!manualReboot)
         {
             Tracer tracer("Reboot BMC system");
-            std::ignore = exec("/sbin/reboot");
+            std::ignore = exec(REBOOT_CMD);
             tracer.done();
         }
     }

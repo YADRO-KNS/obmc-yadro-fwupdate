@@ -206,7 +206,7 @@ void BIOSUpdater::doInstall(const fs::path& file)
     //       progress from original flashcp output.
     printf("Writing %s to %s\n", file.filename().c_str(), mtdDevice);
     int rc =
-        system(strfmt("flashcp -v %s %s", file.c_str(), mtdDevice).c_str());
+        system(strfmt(FLASHCP_CMD " -v %s %s", file.c_str(), mtdDevice).c_str());
     checkWaitStatus(rc, "");
 }
 
@@ -217,7 +217,7 @@ void BIOSUpdater::doBeforeInstall(bool reset)
         puts("Preserving UEFI settings...");
         const fs::path dumpFile(tmpdir / nvramFile);
         const std::string cmd =
-            strfmt("nanddump --startaddress %lu --length %lu --file '%s' %s",
+            strfmt(NANDDUMP_CMD " --startaddress %lu --length %lu --file '%s' %s",
                    nvramOffset, nvramSize, dumpFile.c_str(), mtdDevice);
         const int rc = system(cmd.c_str());
         checkWaitStatus(rc, std::string());
@@ -240,14 +240,14 @@ bool BIOSUpdater::doAfterInstall(bool reset)
 
         puts("Preparing NVRAM partition...");
         const std::string cmdErase =
-            strfmt("flash_erase %s %lu %lu", mtdDevice, nvramOffset,
+            strfmt(FLASH_ERASE_CMD " %s %lu %lu", mtdDevice, nvramOffset,
                    nvramSize / mtdBlockSize);
         int rc = system(cmdErase.c_str());
         checkWaitStatus(rc, std::string());
 
         puts("Restoring UEFI settings...");
         const std::string cmdWrite =
-            strfmt("nandwrite --start %lu %s %s", nvramOffset, mtdDevice,
+            strfmt(NANDWRITE_CMD " --start %lu %s %s", nvramOffset, mtdDevice,
                    dumpFile.c_str());
         rc = system(cmdWrite.c_str());
         checkWaitStatus(rc, std::string());

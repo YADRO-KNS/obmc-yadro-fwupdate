@@ -55,8 +55,6 @@ option('hiomapd-iface', type: 'string',
        value: 'xyz.openbmc_project.Hiomapd.Control',
        description: 'The hiomapd control interface.')
 
-option('pflash-cmd', type: 'string', value: 'pflash',
-       description: 'command line tool to manipulate PNOR flash')
 option('pnor-file-ext', type: 'string', value: '.pnor',
        description: 'The extension of the PNOR firmware image file.')
 
@@ -90,3 +88,23 @@ option('openbmc-flash-path', type: 'string', value: '/run/initramfs',
        description: 'The path where from the OpenBMC image will be flashed.')
 option('openbmc-whitelist-file-name', type: 'string', value: 'whitelist',
        description: 'The OpenBMC whilte file name.')
+
+option('tar-cmd', type: 'string', value: '/bin/tar',
+       description: 'command line tool to work with TAR archieve')
+option('reboot-cmd', type: 'string', value: '/sbin/reboot',
+       description: 'command line tool to reboot system')
+option('fw-setenv-cmd', type: 'string', value: '/sbin/fw_setenv',
+       description: 'command line tool to update u-boot variables')
+option('fw-printenv-cmd', type: 'string', value: '/sbin/fw_printenv',
+       description: 'command line tool to read u-boot variables')
+
+option('flashcp-cmd', type: 'string', value: '/usr/sbin/flashcp',
+       description: 'command line tool to write flash')
+option('flash-erase-cmd', type: 'string', value: '/usr/sbin/flash_erase',
+       description: 'command line tool to erase flash')
+option('nanddump-cmd', type: 'string', value: '/usr/sbin/nanddump',
+       description: 'command line tool to dump NAND MTD partition')
+option('nandwrite-cmd', type: 'string', value: '/usr/sbin/nandwrite',
+       description: 'command line tool to write NAND MTD partition')
+option('pflash-cmd', type: 'string', value: '/usr/sbin/pflash',
+       description: 'command line tool to manipulate PNOR flash')

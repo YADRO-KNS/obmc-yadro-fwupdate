@@ -185,7 +185,7 @@ void FwUpdate::unpack(const fs::path& path)
         Tracer tracer("Unpack firmware package");
 
         std::ignore =
-            exec("tar -xf %s -C %s 2>/dev/null", path.c_str(), tmpdir.c_str());
+            exec(TAR_CMD " -xf %s -C %s 2>/dev/null", path.c_str(), tmpdir.c_str());
 
         for (const auto& it : fs::directory_iterator(tmpdir))
         {
