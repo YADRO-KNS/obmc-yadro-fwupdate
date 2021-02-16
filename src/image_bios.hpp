@@ -16,16 +16,13 @@ struct BIOSUpdater : public FwUpdBase
 
     void reset() override
     {
-        // There is nothing to reset in the BIOS.
+        // Not supported yet.
     }
     void lock() override;
     void unlock() override;
     void doInstall(const fs::path& file) override;
-    bool doAfterInstall(bool) override
-    {
-        // The BIOS update does not require the BMC reboot.
-        return false;
-    }
+    void doBeforeInstall(bool reset) override;
+    bool doAfterInstall(bool reset) override;
     bool isFileFlashable(const fs::path& file) const override;
 
   private:
