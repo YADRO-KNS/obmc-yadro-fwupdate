@@ -39,6 +39,12 @@ void FwUpdBase::verify(const fs::path& publicKey, const std::string& hashFunc)
 
 bool FwUpdBase::install(bool reset)
 {
+    if (files.empty())
+    {
+        // Nothing to install for this updater type.
+        return false;
+    }
+
     doBeforeInstall(reset);
 
     for (const auto& file : files)
