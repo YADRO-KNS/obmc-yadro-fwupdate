@@ -29,4 +29,5 @@ struct BIOSUpdater : public FwUpdBase
     bool locked = false;
     gpiod::line gpioPCHPower;
     gpiod::line gpioBIOSSel;
+    int pca9698FD = -1;
 };
