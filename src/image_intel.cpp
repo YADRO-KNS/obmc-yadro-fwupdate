@@ -27,7 +27,7 @@ static size_t getBootAddress()
 {
     const std::string bootcmdPrefix = "bootcmd=bootm";
 
-    std::string bootcmd = exec(FW_PRINTENV_CMD " bootcmd");
+    std::string bootcmd = exec(FW_PRINTENV_CMD " bootcmd 2>/dev/null");
     if (bootcmd.compare(0, bootcmdPrefix.length(), bootcmdPrefix) == 0)
     {
         return std::stoul(bootcmd.substr(bootcmdPrefix.length()), nullptr, 16);
@@ -41,7 +41,8 @@ static size_t getBootAddress()
  */
 static void setBootAddress(size_t address)
 {
-    std::ignore = exec(FW_SETENV_CMD " bootcmd bootm %08x", address);
+    std::ignore =
+        exec(FW_SETENV_CMD " bootcmd bootm %08x 2>/dev/null", address);
 }
 
 using FileSystem = std::string;
