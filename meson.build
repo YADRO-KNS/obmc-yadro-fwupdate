@@ -112,4 +112,5 @@ executable(
     fwupdate_sources,
     dependencies: fwupdate_dependencies,
     install: true,
+    install_dir: get_option('sbindir'),
 )
