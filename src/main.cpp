@@ -12,6 +12,10 @@
 #include "subprocess.hpp"
 #include "tracer.hpp"
 
+#ifdef INTEL_PLATFORMS
+#include "image_bios.hpp"
+#endif
+
 #include <getopt.h>
 
 #include <cerrno>
@@ -206,6 +210,12 @@ static void printUsage(const char* app)
   -y, --yes         don't ask user for confirmation
   -v, --version     print installed firmware version info and exit
 )");
+#ifdef INTEL_PLATFORMS
+    printf(R"(  -g, --gbe         write 10GBE region only
+  -n, --nvread FILE  read NVRAM to file
+  -w, --nvwrite FILE write NVRAM from file
+)");
+#endif
 }
 
 /**
@@ -232,6 +242,11 @@ int main(int argc, char* argv[])
         { "force",   no_argument,       0, 'F' },
         { "yes",     no_argument,       0, 'y' },
         { "version", no_argument,       0, 'v' },
+#ifdef INTEL_PLATFORMS
+        { "gbe",     no_argument,       0, 'g' },
+        { "nvread",  required_argument, 0, 'n' },
+        { "nvwrite", required_argument, 0, 'w' },
+#endif
         { 0,         0,                 0,  0  }
         // clang-format on
     };
@@ -242,10 +257,18 @@ int main(int argc, char* argv[])
     bool forceFlash = false;
     bool doShowVersion = false;
     std::string firmwareFile;
+#ifdef INTEL_PLATFORMS
+    std::string nvramReadFile;
+    std::string nvramWriteFile;
+#endif
 
     opterr = 0;
     int optVal;
-    while ((optVal = getopt_long(argc, argv, "hf:rsFyv", opts, nullptr)) != -1)
+    while ((optVal = getopt_long(argc, argv, "hf:rsFyv"
+#ifdef INTEL_PLATFORMS
+    "gn:w:"
+#endif
+    , opts, nullptr)) != -1)
     {
         switch (optVal)
         {
@@ -277,6 +300,19 @@ int main(int argc, char* argv[])
                 doShowVersion = true;
                 break;
 
+#ifdef INTEL_PLATFORMS
+            case 'g':
+                BIOSUpdater::writeGbeOnly = true;
+                break;
+
+            case 'n':
+                nvramReadFile = optarg;
+                break;
+
+            case 'w':
+                nvramWriteFile = optarg;
+                break;
+#endif
             default:
                 fprintf(stderr, "Invalid option: %s\n", argv[optind - 1]);
                 printUsage(argv[0]);
@@ -299,9 +335,22 @@ int main(int argc, char* argv[])
         {
             resetFirmware(interactive, forceFlash);
         }
+#ifdef INTEL_PLATFORMS
+        else if (!nvramReadFile.empty())
+        {
+            BIOSUpdater::readNvram(nvramReadFile);
+        }
+        else if (!nvramWriteFile.empty())
+        {
+            BIOSUpdater::writeNvram(nvramWriteFile);
+        }
+#endif
         else
         {
             fprintf(stderr, "One or both of --file/--reset "
+#ifdef INTEL_PLATFORMS
+                            "or one of --nvread/-nvwrite "
+#endif
                             "options must be specified!\n");
             return EXIT_FAILURE;
         }

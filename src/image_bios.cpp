@@ -33,25 +33,22 @@ static constexpr auto pca9698Addr = 0x27;
 static constexpr auto pca9698InputReg = 0x00;
 static constexpr auto pca9698ModeReg = 0x2a;
 static constexpr auto pca9698OEPolBit = 0x01;
+static constexpr size_t nvramOffset = 0x01000000;
+static constexpr size_t nvramSize = 0x00080000;
+static const char* nvramFile = "nvram.bin";
+static constexpr size_t gbeOffset = 0x00a36000;
+static constexpr size_t gbeSize = 0x005ba000;
+static const char* gbeFile = "gbe.bin";
+static constexpr size_t ddBlockSize = 512;
 
-struct BiosPartition
-{
-    const char* name;
-    size_t address;
-    size_t size;
-};
-
-static const BiosPartition preservedPartitions[] = {
-    {"NVRAM", 0x01000000, 0x00080000},
-    {"10GBE", 0x00a36000, 0x005ba000},
-};
+bool BIOSUpdater::writeGbeOnly = false;
 
 /**
- * @brief Check if SPI driver is already bound
+ * @brief Check if SPI driver is bound and MTD device mounted
  */
 static bool isSPIDriverBound()
 {
-    return fs::exists(aspeedSMC / spiDriver);
+    return fs::exists(aspeedSMC / spiDriver) && fs::exists(mtdDevice);
 }
 
 /**
@@ -343,59 +340,95 @@ void BIOSUpdater::unlock()
 
 void BIOSUpdater::doInstall(const fs::path& file)
 {
-    // NOTE: This process may take a lot of time and we want to show the
-    //       progress from original flashcp output.
-    printf("Writing %s to %s\n", file.filename().c_str(), mtdDevice);
-    int rc =
-        system(strfmt(FLASHCP_CMD " -v %s %s", file.c_str(), mtdDevice).c_str());
-    checkWaitStatus(rc, "");
+    if (writeGbeOnly)
+    {
+        // mtd-util doesn't work with symlinks
+        const fs::path mtdDeviceReal = fs::canonical(
+            fs::path(mtdDevice).parent_path() / fs::read_symlink(mtdDevice));
+
+        puts("Writing GBE...");
+
+        const fs::path partFile(tmpdir / gbeFile);
+        std::string cmd = strfmt(
+            "dd if=%s of=%s skip=%lu count=%lu", file.c_str(), partFile.c_str(),
+            gbeOffset / ddBlockSize, gbeSize / ddBlockSize);
+        int rc = system(cmd.c_str());
+        checkWaitStatus(rc, std::string());
+
+        cmd = strfmt("mtd-util -d %s cp %s 0x%x", mtdDeviceReal.c_str(),
+                     partFile.c_str(), gbeOffset);
+        rc = system(cmd.c_str());
+        checkWaitStatus(rc, std::string());
+    }
+    else
+    {
+        printf("Writing %s to %s\n", file.filename().c_str(), mtdDevice);
+        int rc = system(
+            strfmt(FLASHCP_CMD " -v %s %s", file.c_str(), mtdDevice).c_str());
+        checkWaitStatus(rc, "");
+    }
 }
 
 void BIOSUpdater::doBeforeInstall(bool reset)
 {
-    if (!reset)
+    if (!reset && !writeGbeOnly)
     {
-        static const size_t ddBlockSize = 512;
-        for (auto& partition : preservedPartitions)
+        puts("Preserving NVRAM...");
+        fs::path dumpFile(tmpdir / nvramFile);
+        std::string cmd = strfmt("dd if=%s of=%s skip=%lu count=%lu", mtdDevice,
+                                 dumpFile.c_str(), nvramOffset / ddBlockSize,
+                                 nvramSize / ddBlockSize);
+        int rc = system(cmd.c_str());
+        checkWaitStatus(rc, std::string());
+        if (!fs::exists(dumpFile))
         {
-            printf("Preserving %s...\n", partition.name);
-            const fs::path dumpFile(tmpdir / partition.name);
-            const std::string cmd =
-                strfmt("dd if=%s of=%s skip=%lu count=%lu", mtdDevice,
-                       dumpFile.c_str(), partition.address / ddBlockSize,
-                       partition.size / ddBlockSize);
-            const int rc = system(cmd.c_str());
-            checkWaitStatus(rc, std::string());
-            if (!fs::exists(dumpFile))
-            {
-                throw FwupdateError("Error reading %s", partition.name);
-            }
+            throw FwupdateError("Error reading NVRAM");
+        }
+
+        puts("Preserving 10GBE...");
+        dumpFile = tmpdir / gbeFile;
+        cmd = strfmt("dd if=%s of=%s skip=%lu count=%lu", mtdDevice,
+                     dumpFile.c_str(), gbeOffset / ddBlockSize,
+                     gbeSize / ddBlockSize);
+        rc = system(cmd.c_str());
+        checkWaitStatus(rc, std::string());
+        if (!fs::exists(dumpFile))
+        {
+            throw FwupdateError("Error reading 10GBE");
         }
     }
 }
 
 bool BIOSUpdater::doAfterInstall(bool reset)
 {
-    if (!reset)
+    if (!reset && !writeGbeOnly)
     {
         // mtd-util doesn't work with symlinks
         const fs::path mtdDeviceReal = fs::canonical(
             fs::path(mtdDevice).parent_path() / fs::read_symlink(mtdDevice));
-        for (auto& partition : preservedPartitions)
+
+        puts("Restoring NVRAM...");
+        fs::path dumpFile(tmpdir / nvramFile);
+        if (!fs::exists(dumpFile))
         {
-            printf("Restoring %s...\n", partition.name);
-            const fs::path dumpFile(tmpdir / partition.name);
-            if (!fs::exists(dumpFile))
-            {
-                throw FwupdateError("Dump for %s partition not found",
-                                    partition.name);
-            }
-            const std::string cmd =
-                strfmt("mtd-util -d %s cp %s 0x%x", mtdDeviceReal.c_str(),
-                       dumpFile.c_str(), partition.address);
-            const int rc = system(cmd.c_str());
-            checkWaitStatus(rc, std::string());
+            throw FwupdateError("Dump for NVRAM partition not found");
         }
+        std::string cmd =
+            strfmt("mtd-util -d %s cp %s 0x%x", mtdDeviceReal.c_str(),
+                   dumpFile.c_str(), nvramOffset);
+        int rc = system(cmd.c_str());
+        checkWaitStatus(rc, std::string());
+
+        puts("Restoring 10GBE...");
+        dumpFile = tmpdir / gbeFile;
+        if (!fs::exists(dumpFile))
+        {
+            throw FwupdateError("Dump for 10GBE partition not found");
+        }
+        cmd = strfmt("mtd-util -d %s cp %s 0x%x", mtdDeviceReal.c_str(),
+                     dumpFile.c_str(), gbeOffset);
+        rc = system(cmd.c_str());
+        checkWaitStatus(rc, std::string());
     }
     return false; // reboot is not needed
 }
@@ -404,4 +437,69 @@ bool BIOSUpdater::isFileFlashable(const fs::path& file) const
 {
     return file.stem() == "vegman" &&
            (file.extension() == ".bin" || file.extension() == ".img");
+}
+
+void BIOSUpdater::readNvram(const std::string& file)
+{
+    BIOSUpdater upd(fs::temp_directory_path());
+    upd.files.push_back("dummy");
+    try
+    {
+        upd.lock();
+
+        puts("Reading NVRAM...");
+        const std::string cmd =
+            strfmt("dd if=%s of=%s skip=%lu count=%lu", mtdDevice, file.c_str(),
+                   nvramOffset / ddBlockSize, nvramSize / ddBlockSize);
+        const int rc = system(cmd.c_str());
+        checkWaitStatus(rc, std::string());
+
+        upd.unlock();
+    }
+    catch (...)
+    {
+        try
+        {
+            upd.unlock();
+        }
+        catch (const std::exception& ex)
+        {
+            fprintf(stderr, "%s\n", ex.what());
+        }
+        throw;
+    }
+}
+
+void BIOSUpdater::writeNvram(const std::string& file)
+{
+    BIOSUpdater upd(fs::temp_directory_path());
+    upd.files.push_back("dummy");
+    try
+    {
+        upd.lock();
+
+        Tracer tracer("Writing NVRAM");
+        const fs::path mtdDeviceReal = fs::canonical(
+            fs::path(mtdDevice).parent_path() / fs::read_symlink(mtdDevice));
+        const std::string cmd =
+            strfmt("mtd-util -v -d %s cp %s 0x%x", mtdDeviceReal.c_str(),
+                   file.c_str(), nvramOffset);
+        const int rc = system(cmd.c_str());
+        checkWaitStatus(rc, std::string());
+        tracer.done();
+
+        upd.unlock();
+    }
+    catch (...)
+    {
+        try
+        {
+            upd.unlock();
+        }
+        catch (const std::exception& ex)
+        {
+            fprintf(stderr, "%s\n", ex.what());
+        }
+        throw;
+    }
 }
