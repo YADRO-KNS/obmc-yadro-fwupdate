@@ -25,18 +25,26 @@
 static const fs::path aspeedSMC = "/sys/bus/platform/drivers/aspeed-smc";
 static constexpr auto spiDriver = "1e631000.spi";
 static const char* mtdDevice = "/dev/mtd/bios";
-static const size_t mtdBlockSize = 0xffff;
 static constexpr auto gpioNamePCHPower = "PWRGD_DSW_PWROK";
 static constexpr auto gpioNameBIOSSel = "MIO_BIOS_SEL";
 static constexpr auto gpioOwner = "fwupdate";
-static constexpr size_t nvramOffset = 0x01000000;
-static constexpr size_t nvramSize = 0x00080000;
-static const char* nvramFile = "nvram.bin";
 static constexpr auto pca9698Bus = "/dev/i2c-11";
 static constexpr auto pca9698Addr = 0x27;
 static constexpr auto pca9698InputReg = 0x00;
 static constexpr auto pca9698ModeReg = 0x2a;
 static constexpr auto pca9698OEPolBit = 0x01;
+
+struct BiosPartition
+{
+    const char* name;
+    size_t address;
+    size_t size;
+};
+
+static const BiosPartition preservedPartitions[] = {
+    {"NVRAM", 0x01000000, 0x00080000},
+    {"10GBE", 0x00a36000, 0x005ba000},
+};
 
 /**
  * @brief Check if SPI driver is already bound
@@ -347,16 +355,21 @@ void BIOSUpdater::doBeforeInstall(bool reset)
 {
     if (!reset)
     {
-        puts("Preserving UEFI settings...");
-        const fs::path dumpFile(tmpdir / nvramFile);
-        const std::string cmd =
-            strfmt(NANDDUMP_CMD " --startaddress %lu --length %lu --file '%s' %s",
-                   nvramOffset, nvramSize, dumpFile.c_str(), mtdDevice);
-        const int rc = system(cmd.c_str());
-        checkWaitStatus(rc, std::string());
-        if (!fs::exists(dumpFile))
+        static const size_t ddBlockSize = 512;
+        for (auto& partition : preservedPartitions)
         {
-            throw FwupdateError("Error reading NVRAM");
+            printf("Preserving %s...\n", partition.name);
+            const fs::path dumpFile(tmpdir / partition.name);
+            const std::string cmd =
+                strfmt("dd if=%s of=%s skip=%lu count=%lu", mtdDevice,
+                       dumpFile.c_str(), partition.address / ddBlockSize,
+                       partition.size / ddBlockSize);
+            const int rc = system(cmd.c_str());
+            checkWaitStatus(rc, std::string());
+            if (!fs::exists(dumpFile))
+            {
+                throw FwupdateError("Error reading %s", partition.name);
+            }
         }
     }
 }
@@ -365,25 +378,24 @@ bool BIOSUpdater::doAfterInstall(bool reset)
 {
     if (!reset)
     {
-        const fs::path dumpFile(tmpdir / nvramFile);
-        if (!fs::exists(dumpFile))
+        // mtd-util doesn't work with symlinks
+        const fs::path mtdDeviceReal = fs::canonical(
+            fs::path(mtdDevice).parent_path() / fs::read_symlink(mtdDevice));
+        for (auto& partition : preservedPartitions)
         {
-            throw FwupdateError("NVRAM dump not found");
+            printf("Restoring %s...\n", partition.name);
+            const fs::path dumpFile(tmpdir / partition.name);
+            if (!fs::exists(dumpFile))
+            {
+                throw FwupdateError("Dump for %s partition not found",
+                                    partition.name);
+            }
+            const std::string cmd =
+                strfmt("mtd-util -d %s cp %s 0x%x", mtdDeviceReal.c_str(),
+                       dumpFile.c_str(), partition.address);
+            const int rc = system(cmd.c_str());
+            checkWaitStatus(rc, std::string());
         }
-
-        puts("Preparing NVRAM partition...");
-        const std::string cmdErase =
-            strfmt(FLASH_ERASE_CMD " %s %lu %lu", mtdDevice, nvramOffset,
-                   nvramSize / mtdBlockSize);
-        int rc = system(cmdErase.c_str());
-        checkWaitStatus(rc, std::string());
-
-        puts("Restoring UEFI settings...");
-        const std::string cmdWrite =
-            strfmt(NANDWRITE_CMD " --start %lu %s %s", nvramOffset, mtdDevice,
-                   dumpFile.c_str());
-        rc = system(cmdWrite.c_str());
-        checkWaitStatus(rc, std::string());
     }
     return false; // reboot is not needed
 }
