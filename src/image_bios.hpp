@@ -25,6 +25,10 @@ struct BIOSUpdater : public FwUpdBase
     bool doAfterInstall(bool reset) override;
     bool isFileFlashable(const fs::path& file) const override;
 
+    static bool writeGbeOnly;
+    static void readNvram(const std::string& file);
+    static void writeNvram(const std::string& file);
+
   private:
     bool locked = false;
     gpiod::line gpioPCHPower;
