@@ -371,65 +371,77 @@ void BIOSUpdater::doInstall(const fs::path& file)
 
 void BIOSUpdater::doBeforeInstall(bool reset)
 {
-    if (!reset && !writeGbeOnly)
+    if (writeGbeOnly)
+    {
+        return;
+    }
+
+    if (!reset)
     {
         puts("Preserving NVRAM...");
-        fs::path dumpFile(tmpdir / nvramFile);
-        std::string cmd = strfmt("dd if=%s of=%s skip=%lu count=%lu", mtdDevice,
-                                 dumpFile.c_str(), nvramOffset / ddBlockSize,
-                                 nvramSize / ddBlockSize);
-        int rc = system(cmd.c_str());
+        const fs::path dumpFile(tmpdir / nvramFile);
+        const std::string cmd = strfmt(
+            "dd if=%s of=%s skip=%lu count=%lu", mtdDevice, dumpFile.c_str(),
+            nvramOffset / ddBlockSize, nvramSize / ddBlockSize);
+        const int rc = system(cmd.c_str());
         checkWaitStatus(rc, std::string());
         if (!fs::exists(dumpFile))
         {
             throw FwupdateError("Error reading NVRAM");
         }
+    }
 
-        puts("Preserving 10GBE...");
-        dumpFile = tmpdir / gbeFile;
-        cmd = strfmt("dd if=%s of=%s skip=%lu count=%lu", mtdDevice,
-                     dumpFile.c_str(), gbeOffset / ddBlockSize,
-                     gbeSize / ddBlockSize);
-        rc = system(cmd.c_str());
-        checkWaitStatus(rc, std::string());
-        if (!fs::exists(dumpFile))
-        {
-            throw FwupdateError("Error reading 10GBE");
-        }
+    puts("Preserving 10GBE...");
+    const fs::path dumpFile = tmpdir / gbeFile;
+    const std::string cmd =
+        strfmt("dd if=%s of=%s skip=%lu count=%lu", mtdDevice, dumpFile.c_str(),
+               gbeOffset / ddBlockSize, gbeSize / ddBlockSize);
+    const int rc = system(cmd.c_str());
+    checkWaitStatus(rc, std::string());
+    if (!fs::exists(dumpFile))
+    {
+        throw FwupdateError("Error reading 10GBE");
     }
 }
 
 bool BIOSUpdater::doAfterInstall(bool reset)
 {
-    if (!reset && !writeGbeOnly)
+    if (writeGbeOnly)
     {
-        // mtd-util doesn't work with symlinks
-        const fs::path mtdDeviceReal = fs::canonical(
-            fs::path(mtdDevice).parent_path() / fs::read_symlink(mtdDevice));
+        return false;
+    }
 
+    // mtd-util doesn't work with symlinks
+    const fs::path mtdDeviceReal = fs::canonical(
+        fs::path(mtdDevice).parent_path() / fs::read_symlink(mtdDevice));
+
+    if (!reset)
+    {
         puts("Restoring NVRAM...");
-        fs::path dumpFile(tmpdir / nvramFile);
+        const fs::path dumpFile(tmpdir / nvramFile);
         if (!fs::exists(dumpFile))
         {
             throw FwupdateError("Dump for NVRAM partition not found");
         }
-        std::string cmd =
+        const std::string cmd =
             strfmt("mtd-util -d %s cp %s 0x%x", mtdDeviceReal.c_str(),
                    dumpFile.c_str(), nvramOffset);
-        int rc = system(cmd.c_str());
-        checkWaitStatus(rc, std::string());
-
-        puts("Restoring 10GBE...");
-        dumpFile = tmpdir / gbeFile;
-        if (!fs::exists(dumpFile))
-        {
-            throw FwupdateError("Dump for 10GBE partition not found");
-        }
-        cmd = strfmt("mtd-util -d %s cp %s 0x%x", mtdDeviceReal.c_str(),
-                     dumpFile.c_str(), gbeOffset);
-        rc = system(cmd.c_str());
+        const int rc = system(cmd.c_str());
         checkWaitStatus(rc, std::string());
     }
+
+    puts("Restoring 10GBE...");
+    const fs::path dumpFile = tmpdir / gbeFile;
+    if (!fs::exists(dumpFile))
+    {
+        throw FwupdateError("Dump for 10GBE partition not found");
+    }
+    const std::string cmd =
+        strfmt("mtd-util -d %s cp %s 0x%x", mtdDeviceReal.c_str(),
+               dumpFile.c_str(), gbeOffset);
+    const int rc = system(cmd.c_str());
+    checkWaitStatus(rc, std::string());
+
     return false; // reboot is not needed
 }
 
