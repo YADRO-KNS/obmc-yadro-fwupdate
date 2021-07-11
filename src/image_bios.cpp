@@ -442,6 +442,9 @@ bool BIOSUpdater::doAfterInstall(bool reset)
     const int rc = system(cmd.c_str());
     checkWaitStatus(rc, std::string());
 
+    // reset BIOS version for bios_active ID
+    updateDBusStoredVersion("/xyz/openbmc_project/software/bios_active", "N/A");
+
     return false; // reboot is not needed
 }
 

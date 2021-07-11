@@ -57,6 +57,14 @@ struct FwUpdBase : public FwUpdIFace
      */
     virtual bool doAfterInstall(bool /*reset*/) = 0;
 
+    /** @brief Update an obsolete version in dbus for some version activation
+     * is required to avoid providing nonactual value.
+     *
+     * @param objectPath the DBus object path of firmware version.
+     * @param version the Version string value.
+     */
+    void updateDBusStoredVersion(const std::string&, const std::string&);
+
     Files files;     //! List of firmware files
     fs::path tmpdir; //! Temporary directory
 };

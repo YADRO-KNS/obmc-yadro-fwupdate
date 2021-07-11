@@ -9,6 +9,8 @@
 #include "signature.hpp"
 #include "tracer.hpp"
 
+#include "dbus.hpp"
+
 FwUpdBase::FwUpdBase(const fs::path& tmpdir) : tmpdir(tmpdir)
 {
 }
@@ -53,4 +55,28 @@ bool FwUpdBase::install(bool reset)
     }
 
     return doAfterInstall(reset);
+}
+
+void FwUpdBase::updateDBusStoredVersion(const std::string& objectPath,
+                                         const std::string& version)
+{
+    constexpr const char* settingsService = "xyz.openbmc_project.Settings";
+    constexpr const char* dbusPropertiesInterface = "org.freedesktop.DBus.Properties";
+    constexpr const char* versionInterface = "xyz.openbmc_project.Software.Version";
+    constexpr const char* versionProperty = "Version";
+
+    auto method = systemBus.new_method_call(settingsService, objectPath.c_str(),
+                                            dbusPropertiesInterface, "Set");
+    try
+    {
+        method.append(versionInterface, versionProperty,
+                      std::variant<std::string>(version));
+        systemBus.call_noreply(method);
+    }
+    catch (const sdbusplus::exception::SdBusError&)
+    {
+        throw FwupdateError("Error resetting version of the firmware.");
+    }
+
+    return;
 }
