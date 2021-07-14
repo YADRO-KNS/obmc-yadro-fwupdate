@@ -148,10 +148,11 @@ void resetFirmware(bool interactive, bool force)
  * @param reset         - flag to drop current settings.
  * @param interactive   - flag to use interactive mode.
  * @param skipSignCheck - flag to skip signature verification.
+ * @param skipMTCheck   - flag to skip machine type comparison.
  * @param force         - flag to flash without lock
  */
 void flashFirmware(const fs::path& firmwareFile, bool reset, bool interactive,
-                   bool skipSignCheck, bool force)
+                   bool skipSignCheck, bool skipMTCheck, bool force)
 {
     if (!fs::exists(firmwareFile))
     {
@@ -184,6 +185,11 @@ void flashFirmware(const fs::path& firmwareFile, bool reset, bool interactive,
         fwupdate.verify();
     }
 
+    if (!skipMTCheck)
+    {
+        fwupdate.checkMachineType();
+    }
+
     if (fwupdate.install(reset))
     {
         reboot(interactive);
@@ -197,7 +203,7 @@ void flashFirmware(const fs::path& firmwareFile, bool reset, bool interactive,
  */
 static void printUsage(const char* app)
 {
-    printf("\nUsage: %s [-h] [-f FILE] [-r] [-s] [-y] [-v]\n", app);
+    printf("\nUsage: %s [-h] [-f FILE] [-r] [-s] [-m] [-y] [-v]\n", app);
     printf(R"(optional arguments:
   -h, --help        show this help message and exit
   -f, --file FILE   path to the firmware file
@@ -206,6 +212,8 @@ static void printUsage(const char* app)
                     reset RW partition of OpenBMC and clean some partitions of
                     the PNOR flash (such as NVRAM, GUARD, HBEL etc)
   -s, --no-sign     disable digital signature verification
+  -m, --no-machine-type
+                    disable machine type comparison
   -F, --force       forced flash/reset firmware
   -y, --yes         don't ask user for confirmation
   -v, --version     print installed firmware version info and exit
@@ -239,6 +247,8 @@ int main(int argc, char* argv[])
         { "file",    required_argument, 0, 'f' },
         { "reset",   no_argument,       0, 'r' },
         { "no-sign", no_argument,       0, 's' },
+        { "no-machine-type",
+                     no_argument,       0, 'm' },
         { "force",   no_argument,       0, 'F' },
         { "yes",     no_argument,       0, 'y' },
         { "version", no_argument,       0, 'v' },
@@ -254,6 +264,7 @@ int main(int argc, char* argv[])
     bool interactive = true;
     bool doReset = false;
     bool skipSignCheck = false;
+    bool skipMachineTypeCheck = false;
     bool forceFlash = false;
     bool doShowVersion = false;
     std::string firmwareFile;
@@ -264,11 +275,13 @@ int main(int argc, char* argv[])
 
     opterr = 0;
     int optVal;
-    while ((optVal = getopt_long(argc, argv, "hf:rsFyv"
+    while ((optVal = getopt_long(argc, argv,
+                                 "hf:rsmFyv"
 #ifdef INTEL_PLATFORMS
-    "gn:w:"
+                                 "gn:w:"
 #endif
-    , opts, nullptr)) != -1)
+                                 ,
+                                 opts, nullptr)) != -1)
     {
         switch (optVal)
         {
@@ -286,6 +299,10 @@ int main(int argc, char* argv[])
 
             case 's':
                 skipSignCheck = true;
+                break;
+
+            case 'm':
+                skipMachineTypeCheck = true;
                 break;
 
             case 'F':
@@ -329,7 +346,7 @@ int main(int argc, char* argv[])
         else if (!firmwareFile.empty())
         {
             flashFirmware(firmwareFile, doReset, interactive, skipSignCheck,
-                          forceFlash);
+                          skipMachineTypeCheck, forceFlash);
         }
         else if (doReset)
         {
