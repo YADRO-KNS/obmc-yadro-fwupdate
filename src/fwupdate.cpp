@@ -287,7 +287,6 @@ void FwUpdate::checkMachineType()
 void FwUpdate::verify()
 {
     systemLevelVerify();
-    checkMachineType();
 
     auto publicKeyFile = getFWFile(PUBLICKEY_FILE_NAME);
     auto manifestFile = getFWFile(MANIFEST_FILE_NAME);

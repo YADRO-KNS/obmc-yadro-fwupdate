@@ -45,6 +45,11 @@ struct FwUpdate
     void verify();
 
     /**
+     * @brief Compare system and package machine types.
+     */
+    void checkMachineType();
+
+    /**
      * @brief Install firmware
      *
      * @param reset - flag to skip restore of the settings
@@ -82,11 +87,6 @@ struct FwUpdate
      *        and hash on the system.
      */
     void systemLevelVerify();
-
-    /**
-     * @brief Compare system and package machine types.
-     */
-    void checkMachineType();
 
   private:
     fs::path tmpdir;
