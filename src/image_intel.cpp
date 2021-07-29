@@ -20,29 +20,73 @@
 constexpr size_t IMAGE_A_ADDR = 0x20080000;
 constexpr size_t IMAGE_B_ADDR = 0x22480000;
 
-/**
- * @brief Get current boot address
- */
-static size_t getBootAddress()
+enum class BootPart
 {
+    image_a,
+    image_b,
+    unknown
+};
+
+/**
+ * @brief Get current boot partition
+ */
+static BootPart getBootPart()
+{
+    BootPart activePart = BootPart::unknown;
     const std::string bootcmdPrefix = "bootcmd=bootm";
+    std::string bootpart;
+
+    // exec call trows exception when command return non-zero status
+    try
+    {
+        auto bootpart = exec(FW_PRINTENV_CMD " bootside 2>/dev/null");
+        return (bootpart == "bootside=b") ? BootPart::image_b
+                                          : BootPart::image_a;
+    }
+    catch (...)
+    {
+        // no bootside variable defined, it is expected case
+    }
 
     std::string bootcmd = exec(FW_PRINTENV_CMD " bootcmd 2>/dev/null");
     if (bootcmd.compare(0, bootcmdPrefix.length(), bootcmdPrefix) == 0)
     {
-        return std::stoul(bootcmd.substr(bootcmdPrefix.length()), nullptr, 16);
+        size_t address =
+            std::stoul(bootcmd.substr(bootcmdPrefix.length()), nullptr, 16);
+        switch (address)
+        {
+            case IMAGE_A_ADDR:
+                activePart = BootPart::image_a;
+                break;
+            case IMAGE_B_ADDR:
+                activePart = BootPart::image_b;
+                break;
+        }
     }
 
-    return 0;
+    return activePart;
 }
 
 /**
- * @brief Set boot address for the next boot.
+ * @brief Set boot partition for the next boot.
  */
-static void setBootAddress(size_t address)
+static void setBootPart(BootPart part)
 {
-    std::ignore =
-        exec(FW_SETENV_CMD " bootcmd bootm %08x 2>/dev/null", address);
+    // exec call trows exception when command return non-zero status
+    try
+    {
+        std::ignore = exec(FW_PRINTENV_CMD " -n bootside 2>/dev/null");
+        std::ignore = exec(FW_SETENV_CMD " bootside %s 2>/dev/null",
+                           (part == BootPart::image_b) ? "b" : "a");
+    }
+    catch (...)
+    {
+        // no bootside variable defined, fallback to direct bootm way
+        size_t address =
+            (part == BootPart::image_b) ? IMAGE_B_ADDR : IMAGE_A_ADDR;
+        std::ignore =
+            exec(FW_SETENV_CMD " bootcmd bootm %08x 2>/dev/null", address);
+    }
 }
 
 using FileSystem = std::string;
@@ -145,7 +189,7 @@ static void releaseFlashDrive()
 
 void IntelPlatformsUpdater::reset()
 {
-    size_t bootaddr = getBootAddress();
+    BootPart bootpart = getBootPart();
 
     releaseFlashDrive();
 
@@ -154,16 +198,16 @@ void IntelPlatformsUpdater::reset()
     std::ignore = exec(FLASH_ERASE_CMD " /dev/mtd/sofs 0 0");
     std::ignore = exec(FLASH_ERASE_CMD " /dev/mtd/u-boot-env 0 0");
 
-    if (bootaddr == IMAGE_B_ADDR)
+    if (bootpart == BootPart::image_b)
     {
-        setBootAddress(bootaddr);
+        setBootPart(bootpart);
     }
     tracer.done();
 }
 
 void IntelPlatformsUpdater::doInstall(const fs::path& file)
 {
-    size_t bootaddr = 0;
+    BootPart bootpart = BootPart::unknown;
     const char* mtd = nullptr;
 
     const std::string& filename = file.filename();
@@ -175,15 +219,15 @@ void IntelPlatformsUpdater::doInstall(const fs::path& file)
     }
     else if (filename == "image-runtime")
     {
-        switch (getBootAddress())
+        switch (getBootPart())
         {
-            case IMAGE_A_ADDR:
-                bootaddr = IMAGE_B_ADDR;
+            case BootPart::image_a:
+                bootpart = BootPart::image_b;
                 mtd = "/dev/mtd/image-b";
                 break;
 
-            case IMAGE_B_ADDR:
-                bootaddr = IMAGE_A_ADDR;
+            case BootPart::image_b:
+                bootpart = BootPart::image_a;
                 mtd = "/dev/mtd/image-a";
                 break;
 
@@ -217,9 +261,9 @@ void IntelPlatformsUpdater::doInstall(const fs::path& file)
         throw FwupdateError("No partition defined for %s", filename.c_str());
     }
 
-    if (bootaddr)
+    if (bootpart != BootPart::unknown)
     {
-        setBootAddress(bootaddr);
+        setBootPart(bootpart);
     }
 }
 
