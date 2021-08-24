@@ -41,6 +41,10 @@ static constexpr size_t gbeSize = 0x005ba000;
 static const char* gbeFile = "gbe.bin";
 static constexpr size_t ddBlockSize = 512;
 
+// D-Bus interface and object to access to UEFI variables storage
+static const char* uefivarInterface = "xyz.openbmc_project.UefiVar";
+static const char* uefivarObject = "/xyz/openbmc_project/uefivar";
+
 bool BIOSUpdater::writeGbeOnly = false;
 
 /**
@@ -378,16 +382,53 @@ void BIOSUpdater::doBeforeInstall(bool reset)
 
     if (!reset)
     {
-        puts("Preserving NVRAM...");
-        const fs::path dumpFile(tmpdir / nvramFile);
-        const std::string cmd = strfmt(
-            "dd if=%s of=%s skip=%lu count=%lu", mtdDevice, dumpFile.c_str(),
-            nvramOffset / ddBlockSize, nvramSize / ddBlockSize);
-        const int rc = system(cmd.c_str());
-        checkWaitStatus(rc, std::string());
-        if (!fs::exists(dumpFile))
+        // Migrating UEFI settings from previous version (1.3 or earlier)
+        puts("Import UEFI settings...");
+        bool doSettingsExist = false;
+        try
         {
-            throw FwupdateError("Error reading NVRAM");
+            // Check if uefivar service still doesn't have settings
+            auto method =
+                systemBus.new_method_call(uefivarInterface, uefivarObject,
+                                          uefivarInterface, "NextVariable");
+            method.append(std::string(), std::vector<uint8_t>(16, 0));
+            systemBus.call_noreply(method);
+            doSettingsExist = true;
+        }
+        catch (const sdbusplus::exception::SdBusError& ex)
+        {
+            if (strcmp(ex.name(),
+                       "xyz.openbmc_project.Common.Error.NotAllowed") != 0)
+            {
+                throw FwupdateError("Unable to import NVRAM: %s",
+                                    ex.description());
+            }
+        }
+        if (!doSettingsExist)
+        {
+            const fs::path dumpFile(tmpdir / nvramFile);
+            const std::string cmd =
+                strfmt("dd if=%s of=%s skip=%lu count=%lu", mtdDevice,
+                       dumpFile.c_str(), nvramOffset / ddBlockSize,
+                       nvramSize / ddBlockSize);
+            const int rc = system(cmd.c_str());
+            checkWaitStatus(rc, std::string());
+            if (!fs::exists(dumpFile))
+            {
+                throw FwupdateError("Error reading NVRAM");
+            }
+            try
+            {
+                auto method =
+                    systemBus.new_method_call(uefivarInterface, uefivarObject,
+                                              uefivarInterface, "ImportVars");
+                method.append(dumpFile.string());
+                systemBus.call_noreply(method);
+            }
+            catch (const std::exception& ex)
+            {
+                throw FwupdateError("Unable to import NVRAM: %s", ex.what());
+            }
         }
     }
 
@@ -415,21 +456,6 @@ bool BIOSUpdater::doAfterInstall(bool reset)
     const fs::path mtdDeviceReal = fs::canonical(
         fs::path(mtdDevice).parent_path() / fs::read_symlink(mtdDevice));
 
-    if (!reset)
-    {
-        puts("Restoring NVRAM...");
-        const fs::path dumpFile(tmpdir / nvramFile);
-        if (!fs::exists(dumpFile))
-        {
-            throw FwupdateError("Dump for NVRAM partition not found");
-        }
-        const std::string cmd =
-            strfmt("mtd-util -d %s cp %s 0x%x", mtdDeviceReal.c_str(),
-                   dumpFile.c_str(), nvramOffset);
-        const int rc = system(cmd.c_str());
-        checkWaitStatus(rc, std::string());
-    }
-
     puts("Restoring 10GBE...");
     const fs::path dumpFile = tmpdir / gbeFile;
     if (!fs::exists(dumpFile))
@@ -444,6 +470,48 @@ bool BIOSUpdater::doAfterInstall(bool reset)
 
     // reset BIOS version for bios_active ID
     updateDBusStoredVersion("/xyz/openbmc_project/software/bios_active", "N/A");
+
+    if (reset)
+    {
+        puts("Reset UEFI settings...");
+        try
+        {
+            auto method = systemBus.new_method_call(
+                uefivarInterface, uefivarObject, uefivarInterface, "Reset");
+            systemBus.call_noreply(method);
+        }
+        catch (const std::exception& ex)
+        {
+            throw FwupdateError("Error reseting UEFI settings: %s", ex.what());
+        }
+    }
+    else
+    {
+        puts("Update UEFI settings...");
+        const fs::path dumpFile(tmpdir / nvramFile);
+        const std::string cmd = strfmt(
+            "dd if=%s of=%s skip=%lu count=%lu", mtdDevice, dumpFile.c_str(),
+            nvramOffset / ddBlockSize, nvramSize / ddBlockSize);
+        const int rc = system(cmd.c_str());
+        checkWaitStatus(rc, std::string());
+        if (!fs::exists(dumpFile))
+        {
+            throw FwupdateError("Error reading NVRAM");
+        }
+
+        try
+        {
+            auto method =
+                systemBus.new_method_call(uefivarInterface, uefivarObject,
+                                          uefivarInterface, "UpdateVars");
+            method.append(dumpFile.string());
+            systemBus.call_noreply(method);
+        }
+        catch (const std::exception& ex)
+        {
+            throw FwupdateError("Error updating UEFI settings: %s", ex.what());
+        }
+    }
 
     return false; // reboot is not needed
 }
