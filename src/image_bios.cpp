@@ -42,8 +42,8 @@ static const char* gbeFile = "gbe.bin";
 static constexpr size_t ddBlockSize = 512;
 
 // D-Bus interface and object to access to UEFI variables storage
-static const char* uefivarInterface = "xyz.openbmc_project.UefiVar";
-static const char* uefivarObject = "/xyz/openbmc_project/uefivar";
+static const char* uefivarInterface = "com.yadro.UefiVar";
+static const char* uefivarObject = "/com/yadro/uefivar";
 
 bool BIOSUpdater::writeGbeOnly = false;
 
