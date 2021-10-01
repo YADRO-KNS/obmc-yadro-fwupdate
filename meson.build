@@ -99,6 +99,7 @@ elif bmc_image_type == 'intel-platforms'
     fwupdate_sources += [
         'src/image_intel.cpp',
         'src/image_bios.cpp',
+        'src/nvm_x722.cpp',
     ]
     fwupdate_dependencies += [
         dependency('libgpiodcxx'),

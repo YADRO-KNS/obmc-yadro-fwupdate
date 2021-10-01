@@ -9,6 +9,7 @@
 
 #include "dbus.hpp"
 #include "fwupderr.hpp"
+#include "nvm_x722.hpp"
 #include "subprocess.hpp"
 #include "tracer.hpp"
 
@@ -36,8 +37,6 @@ static constexpr auto pca9698OEPolBit = 0x01;
 static constexpr size_t nvramOffset = 0x01000000;
 static constexpr size_t nvramSize = 0x00080000;
 static const char* nvramFile = "nvram.bin";
-static constexpr size_t gbeOffset = 0x00a36000;
-static constexpr size_t gbeSize = 0x005ba000;
 static const char* gbeFile = "gbe.bin";
 static constexpr size_t ddBlockSize = 512;
 
@@ -351,17 +350,30 @@ void BIOSUpdater::doInstall(const fs::path& file)
         const fs::path partFile(tmpdir / gbeFile);
         std::string cmd = strfmt(
             "dd if=%s of=%s skip=%lu count=%lu", file.c_str(), partFile.c_str(),
-            gbeOffset / ddBlockSize, gbeSize / ddBlockSize);
+            NvmX722::nvmOffset / ddBlockSize, NvmX722::nvmSize / ddBlockSize);
         int rc = system(cmd.c_str());
         checkWaitStatus(rc, std::string());
 
         cmd = strfmt("mtd-util -d %s cp %s 0x%x", mtdDeviceReal.c_str(),
-                     partFile.c_str(), gbeOffset);
+                     partFile.c_str(), NvmX722::nvmOffset);
         rc = system(cmd.c_str());
         checkWaitStatus(rc, std::string());
     }
     else
     {
+        // modify BIOS image to preserve x722 MAC addresses
+        try
+        {
+            Tracer tracer("Preserving x722 MAC addresses");
+            auto mac = NvmX722(tmpdir / gbeFile).getMac();
+            NvmX722(file).setMac(mac);
+            tracer.done();
+        }
+        catch (const std::exception& ex)
+        {
+            throw FwupdateError("Unable to preserve x722 MAC: %s", ex.what());
+        }
+
         printf("Writing %s to %s\n", file.filename().c_str(), mtdDevice);
         int rc = system(
             strfmt(FLASHCP_CMD " -v %s %s", file.c_str(), mtdDevice).c_str());
@@ -393,9 +405,9 @@ void BIOSUpdater::doBeforeInstall(bool reset)
 
     puts("Preserving 10GBE...");
     const fs::path dumpFile = tmpdir / gbeFile;
-    const std::string cmd =
-        strfmt("dd if=%s of=%s skip=%lu count=%lu", mtdDevice, dumpFile.c_str(),
-               gbeOffset / ddBlockSize, gbeSize / ddBlockSize);
+    const std::string cmd = strfmt(
+        "dd if=%s of=%s skip=%lu count=%lu", mtdDevice, dumpFile.c_str(),
+        NvmX722::nvmOffset / ddBlockSize, NvmX722::nvmSize / ddBlockSize);
     const int rc = system(cmd.c_str());
     checkWaitStatus(rc, std::string());
     if (!fs::exists(dumpFile))
@@ -429,18 +441,6 @@ bool BIOSUpdater::doAfterInstall(bool reset)
         const int rc = system(cmd.c_str());
         checkWaitStatus(rc, std::string());
     }
-
-    puts("Restoring 10GBE...");
-    const fs::path dumpFile = tmpdir / gbeFile;
-    if (!fs::exists(dumpFile))
-    {
-        throw FwupdateError("Dump for 10GBE partition not found");
-    }
-    const std::string cmd =
-        strfmt("mtd-util -d %s cp %s 0x%x", mtdDeviceReal.c_str(),
-               dumpFile.c_str(), gbeOffset);
-    const int rc = system(cmd.c_str());
-    checkWaitStatus(rc, std::string());
 
     // reset BIOS version for bios_active ID
     updateDBusStoredVersion("/xyz/openbmc_project/software/bios_active", "N/A");
