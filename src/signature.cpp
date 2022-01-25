@@ -98,13 +98,13 @@ struct MappedMem
 };
 
 /**
- * @brief Create RSA object from the public key.
+ * @brief Create key object from the public key file.
  *
  * @param publicKey - path to public key file
  *
- * @return RSA Object
+ * @return Key object
  */
-RSA* createPublicRSA(const std::string& publicKey)
+EVP_PKEY_Ptr createPublicKey(const std::string& publicKey)
 {
     auto data = MappedMem::open(publicKey);
     BIO_MEM_Ptr keyBio(BIO_new_mem_buf(data.get(), data.size()), &::BIO_free);
@@ -113,9 +113,8 @@ RSA* createPublicRSA(const std::string& publicKey)
         throw FwupdateError("Failed to create new BIO Memory buffer.");
     }
 
-    // NOTE: Return value should be freed with RSA_free or
-    //       as part of EVP_KEY structure.
-    return PEM_read_bio_RSA_PUBKEY(keyBio.get(), nullptr, nullptr, nullptr);
+    return {PEM_read_bio_PUBKEY(keyBio.get(), nullptr, nullptr, nullptr),
+            &::EVP_PKEY_free};
 }
 
 bool verifyFile(const std::string& keyFile, const std::string& hashFunc,
@@ -129,20 +128,15 @@ bool verifyFile(const std::string& keyFile, const std::string& hashFunc,
         throw FwupdateError("Failed to find the Data or signature file.");
     }
 
-    // Create RSA
-    auto publicRSA = createPublicRSA(keyFile);
-    if (publicRSA == nullptr)
+    // Create public key
+    auto publicKey = createPublicKey(keyFile);
+    if (!publicKey)
     {
-        throw FwupdateError("Failed to create RSA.");
+        throw FwupdateError("Failed to create public key object.");
     }
 
-    // Assign key to RSA.
-    EVP_PKEY_Ptr pKeyPtr(EVP_PKEY_new(), ::EVP_PKEY_free);
-    EVP_PKEY_assign_RSA(pKeyPtr.get(), publicRSA);
-    // NOTE: publicRSA will be freed as part of pKeyPtr
-
     // Initializes a digest context.
-    EVP_MD_CTX_Ptr rsaVerifyCtx(EVP_MD_CTX_new(), ::EVP_MD_CTX_free);
+    EVP_MD_CTX_Ptr verifyCtx(EVP_MD_CTX_new(), ::EVP_MD_CTX_free);
 
     // Adds all digest algorithms to the internal table
     OpenSSL_add_all_digests();
@@ -154,8 +148,8 @@ bool verifyFile(const std::string& keyFile, const std::string& hashFunc,
         throw FwupdateError("EVP_get_digestbyname: Unknown message digest.");
     }
 
-    auto result = EVP_DigestVerifyInit(rsaVerifyCtx.get(), nullptr, hashStruct,
-                                       nullptr, pKeyPtr.get());
+    auto result = EVP_DigestVerifyInit(verifyCtx.get(), nullptr, hashStruct,
+                                       nullptr, publicKey.get());
     if (result != 1)
     {
         throw FwupdateError("Error %lu occurred during EVP_DigestVerifyInit.",
@@ -163,8 +157,7 @@ bool verifyFile(const std::string& keyFile, const std::string& hashFunc,
     }
 
     auto data = MappedMem::open(filePath);
-    result =
-        EVP_DigestVerifyUpdate(rsaVerifyCtx.get(), data.get(), data.size());
+    result = EVP_DigestVerifyUpdate(verifyCtx.get(), data.get(), data.size());
     if (result != 1)
     {
         throw FwupdateError("Error %lu occurred during EVP_DigestVerifyUpdate.",
@@ -173,7 +166,7 @@ bool verifyFile(const std::string& keyFile, const std::string& hashFunc,
 
     auto signature = MappedMem::open(fileSig);
     result = EVP_DigestVerifyFinal(
-        rsaVerifyCtx.get(), reinterpret_cast<unsigned char*>(signature.get()),
+        verifyCtx.get(), reinterpret_cast<unsigned char*>(signature.get()),
         signature.size());
     if (result == -1)
     {
