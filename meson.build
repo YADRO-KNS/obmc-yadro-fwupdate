@@ -55,10 +55,9 @@ if reboot_guard_support
     conf.set_quoted('REBOOT_GUARD_DISABLE', get_option('reboot-guard-disable'))
 endif
 
-openpower_support = get_option('openpower-support')
-conf.set('OPENPOWER_SUPPORT', openpower_support)
-
-if openpower_support
+host_image_type = get_option('host-image-type')
+if host_image_type == 'openpower'
+    conf.set('OPENPOWER_SUPPORT', true)
     conf.set_quoted('HIOMAPD_PATH', get_option('hiomapd-path'))
     conf.set_quoted('HIOMAPD_IFACE', get_option('hiomapd-iface'))
     conf.set_quoted('PFLASH_CMD', get_option('pflash-cmd'))
@@ -66,6 +65,16 @@ if openpower_support
 
     fwupdate_sources += [
         'src/image_openpower.cpp',
+    ]
+elif host_image_type == 'intel-c62x'
+    conf.set('INTEL_C62X_SUPPORT', true)
+
+    fwupdate_sources += [
+        'src/image_bios.cpp',
+        'src/nvm_x722.cpp',
+    ]
+    fwupdate_dependencies += [
+        dependency('libgpiodcxx'),
     ]
 endif
 
@@ -98,11 +107,6 @@ elif bmc_image_type == 'intel-platforms'
     conf.set('INTEL_PLATFORMS', true)
     fwupdate_sources += [
         'src/image_intel.cpp',
-        'src/image_bios.cpp',
-        'src/nvm_x722.cpp',
-    ]
-    fwupdate_dependencies += [
-        dependency('libgpiodcxx'),
     ]
 endif
 

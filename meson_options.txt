@@ -35,8 +35,9 @@ option('reboot-guard-disable', type: 'string',
        value: 'reboot-guard-disable.service',
        description: 'The systemd service to unlock the BMC rebooting')
 
-option('openpower-support', type: 'boolean', value: false,
-       description: 'Enable support for OpenPOWER firmwares')
+option('host-image-type', type: 'combo',
+       choices: [ 'openpower', 'intel-c62x', 'none' ],
+       description: 'The Host firmware image type')
 
 option('chassis-state-path', type: 'string',
        value: '/xyz/openbmc_project/state/chassis0',

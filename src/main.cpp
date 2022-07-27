@@ -12,7 +12,7 @@
 #include "subprocess.hpp"
 #include "tracer.hpp"
 
-#ifdef INTEL_PLATFORMS
+#ifdef INTEL_C62X_SUPPORT
 #include "image_bios.hpp"
 #endif
 
@@ -218,7 +218,7 @@ static void printUsage(const char* app)
   -y, --yes         don't ask user for confirmation
   -v, --version     print installed firmware version info and exit
 )");
-#ifdef INTEL_PLATFORMS
+#ifdef INTEL_C62X_SUPPORT
     printf(R"(  -g, --gbe         write 10GBE region only
   -n, --nvread FILE  read NVRAM to file
   -w, --nvwrite FILE write NVRAM from file
@@ -252,7 +252,7 @@ int main(int argc, char* argv[])
         { "force",   no_argument,       0, 'F' },
         { "yes",     no_argument,       0, 'y' },
         { "version", no_argument,       0, 'v' },
-#ifdef INTEL_PLATFORMS
+#ifdef INTEL_C62X_SUPPORT
         { "gbe",     no_argument,       0, 'g' },
         { "nvread",  required_argument, 0, 'n' },
         { "nvwrite", required_argument, 0, 'w' },
@@ -268,7 +268,7 @@ int main(int argc, char* argv[])
     bool forceFlash = false;
     bool doShowVersion = false;
     std::string firmwareFile;
-#ifdef INTEL_PLATFORMS
+#ifdef INTEL_C62X_SUPPORT
     std::string nvramReadFile;
     std::string nvramWriteFile;
 #endif
@@ -277,7 +277,7 @@ int main(int argc, char* argv[])
     int optVal;
     while ((optVal = getopt_long(argc, argv,
                                  "hf:rsmFyv"
-#ifdef INTEL_PLATFORMS
+#ifdef INTEL_C62X_SUPPORT
                                  "gn:w:"
 #endif
                                  ,
@@ -317,7 +317,7 @@ int main(int argc, char* argv[])
                 doShowVersion = true;
                 break;
 
-#ifdef INTEL_PLATFORMS
+#ifdef INTEL_C62X_SUPPORT
             case 'g':
                 BIOSUpdater::writeGbeOnly = true;
                 break;
@@ -352,7 +352,7 @@ int main(int argc, char* argv[])
         {
             resetFirmware(interactive, forceFlash);
         }
-#ifdef INTEL_PLATFORMS
+#ifdef INTEL_C62X_SUPPORT
         else if (!nvramReadFile.empty())
         {
             BIOSUpdater::readNvram(nvramReadFile);
@@ -365,7 +365,7 @@ int main(int argc, char* argv[])
         else
         {
             fprintf(stderr, "One or both of --file/--reset "
-#ifdef INTEL_PLATFORMS
+#ifdef INTEL_C62X_SUPPORT
                             "or one of --nvread/-nvwrite "
 #endif
                             "options must be specified!\n");
