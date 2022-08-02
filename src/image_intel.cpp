@@ -195,7 +195,10 @@ void IntelPlatformsUpdater::reset()
 
     Tracer tracer("Clear writable partitions");
     std::ignore = exec(FLASH_ERASE_CMD " /dev/mtd/rwfs 0 0");
-    std::ignore = exec(FLASH_ERASE_CMD " /dev/mtd/sofs 0 0");
+    // NOTE: `sofs` should not be erased during the factory reset as it may
+    //       contain the FRU data. On the systems with hardware EEPROM this
+    //       partition typically empty.
+    // std::ignore = exec(FLASH_ERASE_CMD " /dev/mtd/sofs 0 0");
     std::ignore = exec(FLASH_ERASE_CMD " /dev/mtd/u-boot-env 0 0");
 
     if (bootpart == BootPart::image_b)
