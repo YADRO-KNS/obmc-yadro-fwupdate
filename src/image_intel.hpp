@@ -13,6 +13,7 @@ struct IntelPlatformsUpdater : public FwUpdBase
     using FwUpdBase::FwUpdBase;
 
     void reset() override;
+    void lock() override;
     void doInstall(const fs::path& file) override;
     bool doAfterInstall(bool reset) override;
     bool isFileFlashable(const fs::path& file) const override;

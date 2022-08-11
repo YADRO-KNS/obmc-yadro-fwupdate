@@ -205,6 +205,14 @@ void IntelPlatformsUpdater::reset()
     tracer.done();
 }
 
+void IntelPlatformsUpdater::lock()
+{
+    if (isChassisOn())
+    {
+        throw FwupdateError("The host is running now, operation cancelled!");
+    }
+}
+
 void IntelPlatformsUpdater::doInstall(const fs::path& file)
 {
     BootPart bootpart = BootPart::unknown;
