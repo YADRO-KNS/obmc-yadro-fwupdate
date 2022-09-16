@@ -71,11 +71,18 @@ elif host_image_type == 'intel-c62x'
 
     fwupdate_sources += [
         'src/image_bios.cpp',
-        'src/nvm_x722.cpp',
     ]
     fwupdate_dependencies += [
         dependency('libgpiodcxx'),
     ]
+
+    intel_x722_support = get_option('intel-x722-support')
+    conf.set('INTEL_X722_SUPPORT', intel_x722_support)
+    if intel_x722_support
+        fwupdate_sources += [
+            'src/nvm_x722.cpp',
+        ]
+    endif
 endif
 
 conf.set_quoted('TAR_CMD', get_option('tar-cmd'))

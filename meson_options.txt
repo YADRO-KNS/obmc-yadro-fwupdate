@@ -38,6 +38,8 @@ option('reboot-guard-disable', type: 'string',
 option('host-image-type', type: 'combo',
        choices: [ 'openpower', 'intel-c62x', 'none' ],
        description: 'The Host firmware image type')
+option('intel-x722-support', type: 'boolean', value: false,
+       description: 'Enable support for Intel X722 Network Adapter')
 
 option('chassis-state-path', type: 'string',
        value: '/xyz/openbmc_project/state/chassis0',

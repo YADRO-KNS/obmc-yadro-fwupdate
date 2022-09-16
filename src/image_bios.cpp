@@ -9,7 +9,9 @@
 
 #include "dbus.hpp"
 #include "fwupderr.hpp"
+#ifdef INTEL_X722_SUPPORT
 #include "nvm_x722.hpp"
+#endif // INTEL_X722_SUPPORT
 #include "subprocess.hpp"
 #include "tracer.hpp"
 
@@ -40,7 +42,9 @@ static const char* nvramFile = "nvram.bin";
 static const char* gbeFile = "gbe.bin";
 static constexpr size_t ddBlockSize = 512;
 
+#ifdef INTEL_X722_SUPPORT
 bool BIOSUpdater::writeGbeOnly = false;
+#endif // INTEL_X722_SUPPORT
 
 /**
  * @brief Check if SPI driver is bound and MTD device mounted
@@ -339,6 +343,7 @@ void BIOSUpdater::unlock()
 
 void BIOSUpdater::doInstall(const fs::path& file)
 {
+#ifdef INTEL_X722_SUPPORT
     if (writeGbeOnly)
     {
         // mtd-util doesn't work with symlinks
@@ -373,20 +378,24 @@ void BIOSUpdater::doInstall(const fs::path& file)
         {
             throw FwupdateError("Unable to preserve x722 MAC: %s", ex.what());
         }
-
+#endif // INTEL_X722_SUPPORT
         printf("Writing %s to %s\n", file.filename().c_str(), mtdDevice);
         int rc = system(
             strfmt(FLASHCP_CMD " -v %s %s", file.c_str(), mtdDevice).c_str());
         checkWaitStatus(rc, "");
+#ifdef INTEL_X722_SUPPORT
     }
+#endif // INTEL_X722_SUPPORT
 }
 
 void BIOSUpdater::doBeforeInstall(bool reset)
 {
+#ifdef INTEL_X722_SUPPORT
     if (writeGbeOnly)
     {
         return;
     }
+#endif // INTEL_X722_SUPPORT
 
     if (!reset)
     {
@@ -403,6 +412,7 @@ void BIOSUpdater::doBeforeInstall(bool reset)
         }
     }
 
+#ifdef INTEL_X722_SUPPORT
     puts("Preserving 10GBE...");
     const fs::path dumpFile = tmpdir / gbeFile;
     const std::string cmd = strfmt(
@@ -414,14 +424,17 @@ void BIOSUpdater::doBeforeInstall(bool reset)
     {
         throw FwupdateError("Error reading 10GBE");
     }
+#endif // INTEL_X722_SUPPORT
 }
 
 bool BIOSUpdater::doAfterInstall(bool reset)
 {
+#ifdef INTEL_X722_SUPPORT
     if (writeGbeOnly)
     {
         return false;
     }
+#endif // INTEL_X722_SUPPORT
 
     // mtd-util doesn't work with symlinks
     const fs::path mtdDeviceReal = fs::canonical(
