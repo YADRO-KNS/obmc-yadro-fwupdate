@@ -219,11 +219,14 @@ static void printUsage(const char* app)
   -v, --version     print installed firmware version info and exit
 )");
 #ifdef INTEL_C62X_SUPPORT
+#ifdef INTEL_X722_SUPPORT
     printf(R"(  -g, --gbe         write 10GBE region only
-  -n, --nvread FILE  read NVRAM to file
+)");
+#endif // INTEL_X722_SUPPORT
+    printf(R"(  -n, --nvread FILE  read NVRAM to file
   -w, --nvwrite FILE write NVRAM from file
 )");
-#endif
+#endif // INTEL_C62X_SUPPORT
 }
 
 /**
@@ -253,10 +256,12 @@ int main(int argc, char* argv[])
         { "yes",     no_argument,       0, 'y' },
         { "version", no_argument,       0, 'v' },
 #ifdef INTEL_C62X_SUPPORT
+#ifdef INTEL_X722_SUPPORT
         { "gbe",     no_argument,       0, 'g' },
+#endif // INTEL_X722_SUPPORT
         { "nvread",  required_argument, 0, 'n' },
         { "nvwrite", required_argument, 0, 'w' },
-#endif
+#endif // INTEL_C62X_SUPPORT
         { 0,         0,                 0,  0  }
         // clang-format on
     };
@@ -278,8 +283,11 @@ int main(int argc, char* argv[])
     while ((optVal = getopt_long(argc, argv,
                                  "hf:rsmFyv"
 #ifdef INTEL_C62X_SUPPORT
-                                 "gn:w:"
-#endif
+#ifdef INTEL_X722_SUPPORT
+                                 "g"
+#endif // INTEL_X722_SUPPORT
+                                 "n:w:"
+#endif // INTEL_C62X_SUPPORT
                                  ,
                                  opts, nullptr)) != -1)
     {
@@ -318,10 +326,11 @@ int main(int argc, char* argv[])
                 break;
 
 #ifdef INTEL_C62X_SUPPORT
+#ifdef INTEL_X722_SUPPORT
             case 'g':
                 BIOSUpdater::writeGbeOnly = true;
                 break;
-
+#endif // INTEL_X722_SUPPORT
             case 'n':
                 nvramReadFile = optarg;
                 break;
@@ -329,7 +338,7 @@ int main(int argc, char* argv[])
             case 'w':
                 nvramWriteFile = optarg;
                 break;
-#endif
+#endif // INTEL_C62X_SUPPORT
             default:
                 fprintf(stderr, "Invalid option: %s\n", argv[optind - 1]);
                 printUsage(argv[0]);
