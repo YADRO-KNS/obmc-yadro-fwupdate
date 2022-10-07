@@ -39,10 +39,10 @@ static constexpr auto pca9698OEPolBit = 0x01;
 static constexpr size_t nvramOffset = 0x01000000;
 static constexpr size_t nvramSize = 0x00080000;
 static const char* nvramFile = "nvram.bin";
-static const char* gbeFile = "gbe.bin";
 static constexpr size_t ddBlockSize = 512;
 
 #ifdef INTEL_X722_SUPPORT
+static const char* gbeFile = "gbe.bin";
 bool BIOSUpdater::writeGbeOnly = false;
 #endif // INTEL_X722_SUPPORT
 
