@@ -252,6 +252,50 @@ static inline void i2c_smbus_write_byte_data(int fd, uint8_t reg, uint8_t value)
     }
 }
 
+#ifdef INTEL_X722_SUPPORT
+/**
+ * @brief Dump GBE blob
+ *
+ * @param source[in]      bundle filename or mtd device
+ * @param destination[in] filename to write the dump
+ *
+ * @throw FwupdateError in case of errors
+ */
+static void dumpGbe(const fs::path& source, const fs::path& destination)
+{
+    puts("Preserving 10GBE...");
+    std::string cmd =
+        strfmt("dd if=%s of=%s skip=%lu count=%lu", source.c_str(),
+               destination.c_str(), NvmX722::nvmOffset / ddBlockSize,
+               NvmX722::nvmSize / ddBlockSize);
+    int rc = system(cmd.c_str());
+    checkWaitStatus(rc, std::string());
+    if (!fs::exists(destination))
+    {
+        throw FwupdateError("Error reading 10GBE");
+    }
+}
+
+/**
+ * @brief Write GBE blob to the flash drive
+ *
+ * @param img[in]    GBE blob image
+ * @param device[in] mtd device
+ *
+ * @throw FwupdateError in case of errors
+ */
+static void flashGbe(const fs::path& image, const fs::path& device)
+{
+    // mtd-util doesn't work with symlinks
+    const auto mtdDeviceReal = fs::canonical(device);
+    puts("Writing GBE...");
+    auto cmd = strfmt("mtd-util -d %s cp %s 0x%x", mtdDeviceReal.c_str(),
+                      image.c_str(), NvmX722::nvmOffset);
+    auto rc = system(cmd.c_str());
+    checkWaitStatus(rc, std::string());
+}
+#endif // INTEL_X722_SUPPORT
+
 void BIOSUpdater::lock()
 {
     if (!files.empty())
@@ -346,23 +390,9 @@ void BIOSUpdater::doInstall(const fs::path& file)
 #ifdef INTEL_X722_SUPPORT
     if (writeGbeOnly)
     {
-        // mtd-util doesn't work with symlinks
-        const fs::path mtdDeviceReal = fs::canonical(
-            fs::path(mtdDevice).parent_path() / fs::read_symlink(mtdDevice));
-
-        puts("Writing GBE...");
-
         const fs::path partFile(tmpdir / gbeFile);
-        std::string cmd = strfmt(
-            "dd if=%s of=%s skip=%lu count=%lu", file.c_str(), partFile.c_str(),
-            NvmX722::nvmOffset / ddBlockSize, NvmX722::nvmSize / ddBlockSize);
-        int rc = system(cmd.c_str());
-        checkWaitStatus(rc, std::string());
-
-        cmd = strfmt("mtd-util -d %s cp %s 0x%x", mtdDeviceReal.c_str(),
-                     partFile.c_str(), NvmX722::nvmOffset);
-        rc = system(cmd.c_str());
-        checkWaitStatus(rc, std::string());
+        dumpGbe(file, partFile);
+        flashGbe(partFile, mtdDevice);
     }
     else
     {
@@ -413,17 +443,7 @@ void BIOSUpdater::doBeforeInstall(bool reset)
     }
 
 #ifdef INTEL_X722_SUPPORT
-    puts("Preserving 10GBE...");
-    const fs::path dumpFile = tmpdir / gbeFile;
-    const std::string cmd = strfmt(
-        "dd if=%s of=%s skip=%lu count=%lu", mtdDevice, dumpFile.c_str(),
-        NvmX722::nvmOffset / ddBlockSize, NvmX722::nvmSize / ddBlockSize);
-    const int rc = system(cmd.c_str());
-    checkWaitStatus(rc, std::string());
-    if (!fs::exists(dumpFile))
-    {
-        throw FwupdateError("Error reading 10GBE");
-    }
+    dumpGbe(mtdDevice, tmpdir / gbeFile);
 #endif // INTEL_X722_SUPPORT
 }
 
