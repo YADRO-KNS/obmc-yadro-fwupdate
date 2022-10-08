@@ -57,6 +57,15 @@ class NvmX722
     MacAddresses getMac() const;
 
     /**
+     * @brief Get list of MAC addresses from FRU.
+     *
+     * @return list of MAC addresses
+     *
+     * @throw std::exception in case of errors
+     */
+    static MacAddresses getMacFromFRU();
+
+    /**
      * @brief Set PF MAC addresses.
      *
      * @param[in] mac list of MAC addresses

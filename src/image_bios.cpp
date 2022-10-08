@@ -294,6 +294,30 @@ static void flashGbe(const fs::path& image, const fs::path& device)
     auto rc = system(cmd.c_str());
     checkWaitStatus(rc, std::string());
 }
+
+inline bool empty(const NvmX722::mac_t& mac)
+{
+    bool ret = true;
+    const size_t len = sizeof(mac) / sizeof(*mac);
+    for (size_t i = 0; i < len && ret; ++i)
+    {
+        ret &= (mac[i] == 0x00);
+    }
+    return ret;
+}
+
+inline size_t count(const NvmX722::MacAddresses& addrs)
+{
+    size_t ret = 0;
+    for (const auto& mac : addrs)
+    {
+        if (!empty(mac))
+        {
+            ++ret;
+        }
+    }
+    return ret;
+}
 #endif // INTEL_X722_SUPPORT
 
 void BIOSUpdater::lock()
@@ -550,4 +574,60 @@ void BIOSUpdater::writeNvram(const std::string& file)
         }
         throw;
     }
+}
+
+void BIOSUpdater::resetX722MacAddrs()
+{
+#ifdef INTEL_X722_SUPPORT
+    BIOSUpdater upd(fs::temp_directory_path());
+    upd.files.push_back("dummy");
+
+    try
+    {
+        auto fruMacAddrs = NvmX722::getMacFromFRU();
+        if (count(fruMacAddrs) > 0)
+        {
+            upd.lock();
+
+            const fs::path dumpFile = upd.tmpdir / gbeFile;
+            dumpGbe(mtdDevice, dumpFile);
+
+            {
+                Tracer tracer("Preserving x722 MAC addresses");
+                NvmX722 gbe(dumpFile);
+
+                auto macAddrs = gbe.getMac();
+                for (size_t i = 0; i < fruMacAddrs.size(); ++i)
+                {
+                    if (!empty(fruMacAddrs[i]))
+                    {
+                        std::swap(macAddrs[i], fruMacAddrs[i]);
+                    }
+                }
+                gbe.setMac(macAddrs);
+                tracer.done();
+            }
+
+            flashGbe(dumpFile, mtdDevice);
+
+            upd.unlock();
+        }
+        else
+        {
+            throw FwupdateError("No valid MAC addresses found in FRU!");
+        }
+    }
+    catch (...)
+    {
+        try
+        {
+            upd.unlock();
+        }
+        catch (const std::exception& ex)
+        {
+            fprintf(stderr, "%s\n", ex.what());
+        }
+        throw;
+    }
+#endif // INTEL_X722_SUPPORT
 }
