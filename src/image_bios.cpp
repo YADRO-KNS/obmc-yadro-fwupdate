@@ -610,6 +610,30 @@ void BIOSUpdater::resetX722MacAddrs()
 
             flashGbe(dumpFile, mtdDevice);
 
+            {
+                static constexpr auto resetMacPath =
+                    "/xyz/openbmc_project/control/host0/boot/one_time";
+                static constexpr auto resetMacIface =
+                    "xyz.openbmc_project.Control.Boot.ResetMAC";
+
+                Tracer tracer("Set ResetMAC flag");
+
+                auto objects = getObjects(resetMacPath, {resetMacIface});
+                if (!objects.empty())
+                {
+                    setProperty(objects.begin()->first, resetMacPath,
+                                resetMacIface, "ResetMAC", true);
+                }
+                else
+                {
+                    tracer.fail();
+                    printf("WARNING: No service providing `ResetMAC` property "
+                           "found!\n");
+                }
+
+                tracer.done();
+            }
+
             upd.unlock();
         }
         else

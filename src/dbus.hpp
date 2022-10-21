@@ -104,6 +104,34 @@ PropertyType getProperty(const BusName& busname, const Path& path,
 }
 
 /**
+ * @brief Set D-Bus property
+ *
+ * @param busname  - D-Bus service name
+ * @param path     - Object path
+ * @param iface    - Property interface
+ * @param property - Property name
+ * @param value    - Property value
+ */
+template <typename PropertyType>
+void setProperty(const BusName& busname, const Path& path,
+                 const Interface& iface, const PropertyName& property,
+                 const PropertyType& value)
+{
+    auto req = systemBus.new_method_call(busname.c_str(), path.c_str(),
+                                         SYSTEMD_PROPERTIES_INTERFACE, "Set");
+    req.append(iface, property, std::variant<PropertyType>(value));
+
+    try
+    {
+        systemBus.call_noreply(req);
+    }
+    catch (const sdbusplus::exception::SdBusError& e)
+    {
+        throw FwupdateError("Set property call failed: %s", e.what());
+    }
+}
+
+/**
  * @brief Check whether the host is running
  *
  * @return - true if the Chassis is powered on
