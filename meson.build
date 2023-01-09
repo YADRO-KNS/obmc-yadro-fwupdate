@@ -55,6 +55,8 @@ if reboot_guard_support
     conf.set_quoted('REBOOT_GUARD_DISABLE', get_option('reboot-guard-disable'))
 endif
 
+conf.set('GOLDEN_FLASH_SUPPORT', get_option('golden-flash-support'))
+
 host_image_type = get_option('host-image-type')
 if host_image_type == 'openpower'
     conf.set('OPENPOWER_SUPPORT', true)

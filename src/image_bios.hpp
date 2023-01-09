@@ -34,5 +34,8 @@ struct BIOSUpdater : public FwUpdBase
     bool locked = false;
     gpiod::line gpioPCHPower;
     gpiod::line gpioBIOSSel;
+#ifdef GOLDEN_FLASH_SUPPORT
+    gpiod::line gpioActiveFlashSel;
+#endif // GOLDEN_FLASH_SUPPORT
     int pca9698FD = -1;
 };

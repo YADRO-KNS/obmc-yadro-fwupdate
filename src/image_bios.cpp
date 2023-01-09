@@ -30,6 +30,14 @@ static constexpr auto spiDriver = "1e631000.spi";
 static const char* mtdDevice = "/dev/mtd/bios";
 static constexpr auto gpioNamePCHPower = "PWRGD_DSW_PWROK";
 static constexpr auto gpioNameBIOSSel = "MIO_BIOS_SEL";
+
+#ifdef GOLDEN_FLASH_SUPPORT
+extern bool useGoldenFlash; // Defined in main.cpp
+static constexpr auto gpioNameActiveFlashSel = "SPI_BIOS_ACTIVE_FLASH_SEL";
+static constexpr auto mainFlashChip = 0;
+static constexpr auto goldenFlashChip = 1;
+#endif // GOLDEN_FLASH_SUPPORT
+
 static constexpr auto gpioOwner = "fwupdate";
 static constexpr auto pca9698Bus = "/dev/i2c-11";
 static constexpr auto pca9698Addr = 0x27;
@@ -365,6 +373,11 @@ void BIOSUpdater::lock()
             unbindSPIDriver();
 
             setGPIOOutput(gpioNameBIOSSel, 1, gpioBIOSSel);
+#ifdef GOLDEN_FLASH_SUPPORT
+            // Force using the main flash drive
+            setGPIOOutput(gpioNameActiveFlashSel, mainFlashChip,
+                          gpioActiveFlashSel);
+#endif // GOLDEN_FLASH_SUPPORT
             bindSPIDriver();
             tracer.done();
         }
@@ -378,6 +391,9 @@ void BIOSUpdater::unlock()
         {
             Tracer tracer("Return back BIOS flash control to host");
             unbindSPIDriver();
+#ifdef GOLDEN_FLASH_SUPPORT
+            releaseGPIO(gpioActiveFlashSel);
+#endif // GOLDEN_FLASH_SUPPORT
             releaseGPIO(gpioBIOSSel);
             tracer.done();
         }
@@ -433,6 +449,25 @@ void BIOSUpdater::doInstall(const fs::path& file)
             throw FwupdateError("Unable to preserve x722 MAC: %s", ex.what());
         }
 #endif // INTEL_X722_SUPPORT
+
+#ifdef GOLDEN_FLASH_SUPPORT
+        if (useGoldenFlash)
+        {
+            Tracer tracer("Switching to golden flash");
+
+            // This makes the BMC to reinit the driver which might be attached
+            // with wrong data on the hosts equipped with em100.
+            unbindSPIDriver();
+
+            // Swap ChipSelect of main and golden flash drives
+            gpioActiveFlashSel.set_value(goldenFlashChip);
+
+            // Reinit MTD deivce
+            bindSPIDriver();
+            tracer.done();
+        }
+#endif // GOLDEN_FLASH_SUPPORT
+
         printf("Writing %s to %s\n", file.filename().c_str(), mtdDevice);
         int rc = system(
             strfmt(FLASHCP_CMD " -v %s %s", file.c_str(), mtdDevice).c_str());
