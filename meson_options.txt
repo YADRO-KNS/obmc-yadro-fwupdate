@@ -40,6 +40,8 @@ option('host-image-type', type: 'combo',
        description: 'The Host firmware image type')
 option('intel-x722-support', type: 'boolean', value: false,
        description: 'Enable support for Intel X722 Network Adapter')
+option('golden-flash-support', type: 'boolean', value: false,
+       description: 'Enable support for alternate flash chip')
 
 option('chassis-state-path', type: 'string',
        value: '/xyz/openbmc_project/state/chassis0',

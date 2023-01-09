@@ -28,6 +28,10 @@
 
 namespace fs = std::filesystem;
 
+#ifdef GOLDEN_FLASH_SUPPORT
+bool useGoldenFlash = false;
+#endif // GOLDEN_FLASH_SUPPORT
+
 /**
  * @brief Prints version details of all active software objects.
  */
@@ -218,6 +222,10 @@ static void printUsage(const char* app)
   -y, --yes         don't ask user for confirmation
   -v, --version     print installed firmware version info and exit
 )");
+#ifdef GOLDEN_FLASH_SUPPORT
+    printf("  -a, --alt-mtd     operate on the alternate flash chip "
+           "(aka golden flash)\n");
+#endif // GOLDEN_FLASH_SUPPORT
 #ifdef INTEL_C62X_SUPPORT
 #ifdef INTEL_X722_SUPPORT
     printf(R"(  -g, --gbe         write 10GBE region only
@@ -257,6 +265,9 @@ int main(int argc, char* argv[])
         { "force",   no_argument,       0, 'F' },
         { "yes",     no_argument,       0, 'y' },
         { "version", no_argument,       0, 'v' },
+#ifdef GOLDEN_FLASH_SUPPORT
+        { "alt-mtd", no_argument,       0, 'a' },
+#endif // GOLDEN_FLASH_SUPPORT
 #ifdef INTEL_C62X_SUPPORT
 #ifdef INTEL_X722_SUPPORT
         { "gbe",     no_argument,       0, 'g' },
@@ -289,6 +300,9 @@ int main(int argc, char* argv[])
     int optVal;
     while ((optVal = getopt_long(argc, argv,
                                  "hf:rsmFyv"
+#ifdef GOLDEN_FLASH_SUPPORT
+                                 "a"
+#endif // GOLDEN_FLASH_SUPPORT
 #ifdef INTEL_C62X_SUPPORT
 #ifdef INTEL_X722_SUPPORT
                                  "gR"
@@ -331,6 +345,12 @@ int main(int argc, char* argv[])
             case 'v':
                 doShowVersion = true;
                 break;
+
+#ifdef GOLDEN_FLASH_SUPPORT
+            case 'a':
+                useGoldenFlash = true;
+                break;
+#endif // GOLDEN_FLASH_SUPPORT
 
 #ifdef INTEL_C62X_SUPPORT
 #ifdef INTEL_X722_SUPPORT
