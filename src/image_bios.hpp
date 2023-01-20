@@ -28,7 +28,7 @@ struct BIOSUpdater : public FwUpdBase
     static bool writeGbeOnly;
     static void readNvram(const std::string& file);
     static void writeNvram(const std::string& file);
-    static void resetX722MacAddrs();
+    static void resetHostMacAddrs();
 
   private:
     bool locked = false;
