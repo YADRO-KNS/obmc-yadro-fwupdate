@@ -228,12 +228,11 @@ static void printUsage(const char* app)
 #endif // GOLDEN_FLASH_SUPPORT
 #ifdef INTEL_C62X_SUPPORT
 #ifdef INTEL_X722_SUPPORT
-    printf(R"(  -g, --gbe         write 10GBE region only
-  -R, --reset-x722-mac-addresses
-                    replace x722 MAC addresses with values from FRU
-)");
+    printf("  -g, --gbe         write 10GBE region only\n");
 #endif // INTEL_X722_SUPPORT
-    printf(R"(  -n, --nvread FILE  read NVRAM to file
+    printf(R"(  -R, --reset-host-mac-addresses
+                     replace host MAC addresses with values from FRU
+  -n, --nvread FILE  read NVRAM to file
   -w, --nvwrite FILE write NVRAM from file
 )");
 #endif // INTEL_C62X_SUPPORT
@@ -271,9 +270,9 @@ int main(int argc, char* argv[])
 #ifdef INTEL_C62X_SUPPORT
 #ifdef INTEL_X722_SUPPORT
         { "gbe",     no_argument,       0, 'g' },
-        { "reset-x722-mac-addresses",
-                     no_argument,       0, 'R' },
 #endif // INTEL_X722_SUPPORT
+        { "reset-host-mac-addresses",
+                     no_argument,       0, 'R' },
         { "nvread",  required_argument, 0, 'n' },
         { "nvwrite", required_argument, 0, 'w' },
 #endif // INTEL_C62X_SUPPORT
@@ -289,9 +288,7 @@ int main(int argc, char* argv[])
     bool doShowVersion = false;
     std::string firmwareFile;
 #ifdef INTEL_C62X_SUPPORT
-#ifdef INTEL_X722_SUPPORT
-    bool doResetX722MacAddrs = false;
-#endif // INTEL_X722_SUPPORT
+    bool doResetHostMacAddrs = false;
     std::string nvramReadFile;
     std::string nvramWriteFile;
 #endif
@@ -305,9 +302,9 @@ int main(int argc, char* argv[])
 #endif // GOLDEN_FLASH_SUPPORT
 #ifdef INTEL_C62X_SUPPORT
 #ifdef INTEL_X722_SUPPORT
-                                 "gR"
+                                 "g"
 #endif // INTEL_X722_SUPPORT
-                                 "n:w:"
+                                 "Rn:w:"
 #endif // INTEL_C62X_SUPPORT
                                  ,
                                  opts, nullptr)) != -1)
@@ -357,11 +354,12 @@ int main(int argc, char* argv[])
             case 'g':
                 BIOSUpdater::writeGbeOnly = true;
                 break;
+#endif // INTEL_X722_SUPPORT
 
             case 'R':
-                doResetX722MacAddrs = true;
+                doResetHostMacAddrs = true;
                 break;
-#endif // INTEL_X722_SUPPORT
+
             case 'n':
                 nvramReadFile = optarg;
                 break;
@@ -393,12 +391,10 @@ int main(int argc, char* argv[])
             resetFirmware(interactive, forceFlash);
         }
 #ifdef INTEL_C62X_SUPPORT
-#ifdef INTEL_X722_SUPPORT
-        else if (doResetX722MacAddrs)
+        else if (doResetHostMacAddrs)
         {
-            BIOSUpdater::resetX722MacAddrs();
+            BIOSUpdater::resetHostMacAddrs();
         }
-#endif // INTEL_X722_SUPPORT
         else if (!nvramReadFile.empty())
         {
             BIOSUpdater::readNvram(nvramReadFile);

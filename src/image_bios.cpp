@@ -611,9 +611,8 @@ void BIOSUpdater::writeNvram(const std::string& file)
     }
 }
 
-void BIOSUpdater::resetX722MacAddrs()
+void BIOSUpdater::resetHostMacAddrs()
 {
-#ifdef INTEL_X722_SUPPORT
     BIOSUpdater upd(fs::temp_directory_path());
     upd.files.push_back("dummy");
 
@@ -644,6 +643,7 @@ void BIOSUpdater::resetX722MacAddrs()
             tracer.done();
         }
 
+#ifdef INTEL_X722_SUPPORT
         auto fruMacAddrs = NvmX722::getMacFromFRU();
         if (count(fruMacAddrs) > 0)
         {
@@ -676,6 +676,7 @@ void BIOSUpdater::resetX722MacAddrs()
         {
             printf("WARNING: No x722 MAC addresses found in FRU!\n");
         }
+#endif // INTEL_X722_SUPPORT
     }
     catch (...)
     {
@@ -689,5 +690,4 @@ void BIOSUpdater::resetX722MacAddrs()
         }
         throw;
     }
-#endif // INTEL_X722_SUPPORT
 }
