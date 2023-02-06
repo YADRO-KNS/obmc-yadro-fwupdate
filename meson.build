@@ -71,6 +71,9 @@ if host_image_type == 'openpower'
 elif host_image_type == 'intel-c62x'
     conf.set('INTEL_C62X_SUPPORT', true)
 
+    conf.set_quoted('PCH_POWER_PIN', get_option('pch-power-pin'))
+    conf.set('PCH_POWER_DOWN_VALUE', get_option('pch-power-down-value'))
+
     fwupdate_sources += [
         'src/image_bios.cpp',
     ]

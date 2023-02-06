@@ -28,7 +28,6 @@
 static const fs::path aspeedSMC = "/sys/bus/platform/drivers/aspeed-smc";
 static constexpr auto spiDriver = "1e631000.spi";
 static const char* mtdDevice = "/dev/mtd/bios";
-static constexpr auto gpioNamePCHPower = "PWRGD_DSW_PWROK";
 static constexpr auto gpioNameBIOSSel = "MIO_BIOS_SEL";
 
 #ifdef GOLDEN_FLASH_SUPPORT
@@ -340,7 +339,7 @@ void BIOSUpdater::lock()
 
         {
             Tracer tracer("Shutting down PCH");
-            setGPIOOutput(gpioNamePCHPower, 0, gpioPCHPower);
+            setGPIOOutput(PCH_POWER_PIN, PCH_POWER_DOWN_VALUE, gpioPCHPower);
 
             pca9698FD = openI2CDevice(pca9698Bus, pca9698Addr);
             uint8_t input =
