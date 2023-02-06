@@ -15,11 +15,17 @@
 #include "subprocess.hpp"
 #include "tracer.hpp"
 
+#ifdef USE_PCA9698_OEPOL
+extern "C"
+{
+#include <i2c/smbus.h>
+}
 #include <fcntl.h>
 #include <linux/i2c-dev.h>
 #include <linux/i2c.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
+#endif // USE_PCA9698_OEPOL
 
 #include <chrono>
 #include <fstream>
@@ -197,69 +203,6 @@ static int openI2CDevice(const fs::path& path, uint8_t addr)
     }
 
     return fd;
-}
-
-/**
- * @brief General I2C SMBus commands wrapper
- *
- * @param fd        - device file descriptor
- * @param readWrite - i2c function
- * @param command   - i2c command
- * @param size      - data block size
- * @param data      - pointer to datat
- *
- * @return 0 on success, -1 on error.
- */
-static inline int i2c_smbus_access(int fd, uint8_t readWrite, uint8_t command,
-                                   uint32_t size, union i2c_smbus_data* data)
-{
-    struct i2c_smbus_ioctl_data args;
-
-    args.read_write = readWrite;
-    args.command = command;
-    args.size = size;
-    args.data = data;
-
-    return ioctl(fd, I2C_SMBUS, &args);
-}
-
-/**
- * @brief Read byte from i2c device
- *
- * @param fd  - device file descriptor
- * @param reg - device register address
- *
- * @return register value
- */
-static inline uint8_t i2c_smbus_read_byte_data(int fd, uint8_t reg)
-{
-    union i2c_smbus_data data;
-
-    if (i2c_smbus_access(fd, I2C_SMBUS_READ, reg, I2C_SMBUS_BYTE_DATA, &data))
-    {
-        throw FwupdateError("I2C read failed, %s", strerror(errno));
-    }
-
-    return (0xFF & data.byte);
-}
-
-/**
- * @brief Write byte to i2c device
- *
- * @param fd    - device file descriptor
- * @param reg   - device register address
- * @param value - register value
- */
-static inline void i2c_smbus_write_byte_data(int fd, uint8_t reg, uint8_t value)
-{
-    union i2c_smbus_data data;
-
-    data.byte = value;
-
-    if (i2c_smbus_access(fd, I2C_SMBUS_WRITE, reg, I2C_SMBUS_BYTE_DATA, &data))
-    {
-        throw FwupdateError("I2C write failed, %s", strerror(errno));
-    }
 }
 #endif // USE_PCA9698_OEPOL
 
