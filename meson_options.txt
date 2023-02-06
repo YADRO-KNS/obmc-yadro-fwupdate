@@ -42,6 +42,10 @@ option('intel-x722-support', type: 'boolean', value: false,
        description: 'Enable support for Intel X722 Network Adapter')
 option('golden-flash-support', type: 'boolean', value: false,
        description: 'Enable support for alternate flash chip')
+option('pch-power-pin', type: 'string', value: 'PWRGD_DSW_PWROK',
+       description: 'Name of GPIO managing PCH power')
+option('pch-power-down-value', type: 'integer', min: 0, max: 1, value: 0,
+       description: 'GPIO Value to switch PCH power down')
 
 option('chassis-state-path', type: 'string',
        value: '/xyz/openbmc_project/state/chassis0',
