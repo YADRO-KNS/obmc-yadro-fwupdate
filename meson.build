@@ -73,6 +73,7 @@ elif host_image_type == 'intel-c62x'
 
     conf.set_quoted('PCH_POWER_PIN', get_option('pch-power-pin'))
     conf.set('PCH_POWER_DOWN_VALUE', get_option('pch-power-down-value'))
+    conf.set('USE_PCA9698_OEPOL', get_option('use-pca9698-oepol'))
 
     fwupdate_sources += [
         'src/image_bios.cpp',

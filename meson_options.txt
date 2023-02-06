@@ -46,6 +46,8 @@ option('pch-power-pin', type: 'string', value: 'PWRGD_DSW_PWROK',
        description: 'Name of GPIO managing PCH power')
 option('pch-power-down-value', type: 'integer', min: 0, max: 1, value: 0,
        description: 'GPIO Value to switch PCH power down')
+option('use-pca9698-oepol', type: 'boolean', value: true,
+       description: 'Use PCA9698 OEPol bit for PCH power managing')
 
 option('chassis-state-path', type: 'string',
        value: '/xyz/openbmc_project/state/chassis0',

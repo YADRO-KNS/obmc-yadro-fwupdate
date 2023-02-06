@@ -37,5 +37,7 @@ struct BIOSUpdater : public FwUpdBase
 #ifdef GOLDEN_FLASH_SUPPORT
     gpiod::line gpioActiveFlashSel;
 #endif // GOLDEN_FLASH_SUPPORT
+#ifdef USE_PCA9698_OEPOL
     int pca9698FD = -1;
+#endif // USE_PCA9698_OEPOL
 };

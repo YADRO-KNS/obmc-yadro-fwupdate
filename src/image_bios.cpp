@@ -38,11 +38,13 @@ static constexpr auto goldenFlashChip = 1;
 #endif // GOLDEN_FLASH_SUPPORT
 
 static constexpr auto gpioOwner = "fwupdate";
+#ifdef USE_PCA9698_OEPOL
 static constexpr auto pca9698Bus = "/dev/i2c-11";
 static constexpr auto pca9698Addr = 0x27;
 static constexpr auto pca9698InputReg = 0x00;
 static constexpr auto pca9698ModeReg = 0x2a;
 static constexpr auto pca9698OEPolBit = 0x01;
+#endif // USE_PCA9698_OEPOL
 static constexpr size_t nvramOffset = 0x01000000;
 static constexpr size_t nvramSize = 0x00080000;
 static const char* nvramFile = "nvram.bin";
@@ -169,6 +171,7 @@ static void releaseGPIO(gpiod::line& gpioLine)
     }
 }
 
+#ifdef USE_PCA9698_OEPOL
 /**
  * @brief Open I2C device file
  *
@@ -258,6 +261,7 @@ static inline void i2c_smbus_write_byte_data(int fd, uint8_t reg, uint8_t value)
         throw FwupdateError("I2C write failed, %s", strerror(errno));
     }
 }
+#endif // USE_PCA9698_OEPOL
 
 #ifdef INTEL_X722_SUPPORT
 /**
@@ -341,6 +345,7 @@ void BIOSUpdater::lock()
             Tracer tracer("Shutting down PCH");
             setGPIOOutput(PCH_POWER_PIN, PCH_POWER_DOWN_VALUE, gpioPCHPower);
 
+#ifdef USE_PCA9698_OEPOL
             pca9698FD = openI2CDevice(pca9698Bus, pca9698Addr);
             uint8_t input =
                 i2c_smbus_read_byte_data(pca9698FD, pca9698InputReg);
@@ -357,6 +362,7 @@ void BIOSUpdater::lock()
                 close(pca9698FD);
                 pca9698FD = -1;
             }
+#endif // USE_PCA9698_OEPOL
 
             // The GPIO is marked as used by this process.
             locked = true;
@@ -400,6 +406,7 @@ void BIOSUpdater::unlock()
             Tracer tracer("Restoring PCH power");
             releaseGPIO(gpioPCHPower);
 
+#ifdef USE_PCA9698_OEPOL
             if (pca9698FD >= 0)
             {
                 uint8_t mode =
@@ -413,6 +420,7 @@ void BIOSUpdater::unlock()
                 close(pca9698FD);
                 pca9698FD = -1;
             }
+#endif // USE_PCA9698_OEPOL
 
             // Wait for ME booting
             std::this_thread::sleep_for(std::chrono::seconds(10));
