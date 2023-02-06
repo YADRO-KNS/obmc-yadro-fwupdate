@@ -73,7 +73,13 @@ elif host_image_type == 'intel-c62x'
 
     conf.set_quoted('PCH_POWER_PIN', get_option('pch-power-pin'))
     conf.set('PCH_POWER_DOWN_VALUE', get_option('pch-power-down-value'))
-    conf.set('USE_PCA9698_OEPOL', get_option('use-pca9698-oepol'))
+    use_pca9698_oepol = get_option('use-pca9698-oepol')
+    conf.set('USE_PCA9698_OEPOL', use_pca9698_oepol)
+    if use_pca9698_oepol
+      fwupdate_dependencies += [
+        meson.get_compiler('cpp').find_library('i2c'),
+      ]
+    endif
 
     fwupdate_sources += [
         'src/image_bios.cpp',
